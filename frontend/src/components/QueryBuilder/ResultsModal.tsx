@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import type { QueryResult } from '../../types/queryBuilder'
+import type { VisualizationType, VisualizationCreate } from '../../types'
+import { visualizationService } from '../../services/visualizationService'
 import ChartRenderer from '../ChartRenderer'
+import SaveVisualizationModal, { SaveVisualizationData } from './SaveVisualizationModal'
 
 interface ResultsModalProps {
   isOpen: boolean
@@ -9,7 +12,7 @@ interface ResultsModalProps {
   isExecuting: boolean
   error: string | null
   mbqlPreview: object | null
-  onExecute: () => void
+  databaseId: number | null
 }
 
 type ViewMode = 'table' | 'chart'
@@ -22,22 +25,25 @@ export default function ResultsModal({
   isExecuting,
   error,
   mbqlPreview,
-  onExecute,
+  databaseId,
 }: ResultsModalProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [showMBQL, setShowMBQL] = useState(false)
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
 
   // Handle escape key to close modal
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape' && isOpen && !isSaveModalOpen) {
         onClose()
       }
     }
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, isSaveModalOpen])
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -51,9 +57,46 @@ export default function ResultsModal({
     }
   }, [isOpen])
 
+  // Clear success message after 3 seconds
+  useEffect(() => {
+    if (saveSuccess) {
+      const timer = setTimeout(() => setSaveSuccess(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [saveSuccess])
+
+  const handleSaveVisualization = async (data: SaveVisualizationData) => {
+    if (!mbqlPreview || !databaseId) {
+      throw new Error('No query to save')
+    }
+
+    setIsSaving(true)
+    try {
+      // Determine the current view type
+      const vizType: VisualizationType = viewMode === 'table' ? 'table' : data.visualization_type
+
+      const createData: VisualizationCreate = {
+        name: data.name,
+        description: data.description || undefined,
+        database_id: databaseId,
+        query_type: 'mbql',
+        mbql_query: mbqlPreview,
+        visualization_type: vizType,
+        visualization_settings: {},
+      }
+
+      await visualizationService.create(createData)
+      setSaveSuccess(`Visualization "${data.name}" saved successfully!`)
+      setIsSaveModalOpen(false)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   if (!isOpen) return null
 
   const columns = queryResult?.data?.cols || []
+  const currentChartType = viewMode === 'table' ? 'table' : chartType
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -120,6 +163,16 @@ export default function ResultsModal({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Success message */}
+            {saveSuccess && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {saveSuccess}
+              </div>
+            )}
+
             <button
               onClick={() => setShowMBQL(!showMBQL)}
               className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
@@ -137,26 +190,14 @@ export default function ResultsModal({
             </button>
 
             <button
-              onClick={onExecute}
-              disabled={isExecuting}
-              className="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-colors"
+              onClick={() => setIsSaveModalOpen(true)}
+              disabled={!queryResult || isExecuting}
+              className="px-5 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-colors"
             >
-              {isExecuting ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Running...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  Run Query
-                </>
-              )}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              Save Visualization
             </button>
 
             <div className="w-px h-8 bg-gray-200" />
@@ -295,6 +336,15 @@ export default function ResultsModal({
           )}
         </div>
       </div>
+
+      {/* Save Visualization Modal */}
+      <SaveVisualizationModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        onSave={handleSaveVisualization}
+        currentChartType={currentChartType}
+        isSaving={isSaving}
+      />
     </div>
   )
 }

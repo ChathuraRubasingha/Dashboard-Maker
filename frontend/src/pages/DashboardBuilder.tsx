@@ -59,9 +59,9 @@ export default function DashboardBuilder() {
   }, [dashboard, setCurrentDashboard])
 
 
-  const addCardMutation = useMutation({
+  // Add Metabase question card
+  const addMetabaseCardMutation = useMutation({
     mutationFn: (data: { dashboardId: number; questionId: number }) => {
-      // Calculate bottom position based on existing cards
       const cards = currentDashboard?.cards || []
       const maxY = cards.reduce((max, card) => Math.max(max, card.position_y + card.height), 0)
       return dashboardService.addCard(data.dashboardId, {
@@ -70,6 +70,25 @@ export default function DashboardBuilder() {
         position_y: maxY,
         width: 4,
         height: 3,
+      })
+    },
+    onSuccess: (card) => {
+      addCard(card)
+      queryClient.invalidateQueries({ queryKey: ['dashboard', dashboardId] })
+    },
+  })
+
+  // Add local visualization card
+  const addVisualizationCardMutation = useMutation({
+    mutationFn: (data: { dashboardId: number; visualizationId: number }) => {
+      const cards = currentDashboard?.cards || []
+      const maxY = cards.reduce((max, card) => Math.max(max, card.position_y + card.height), 0)
+      return dashboardService.addCard(data.dashboardId, {
+        visualization_id: data.visualizationId,
+        position_x: 0,
+        position_y: maxY,
+        width: 6,
+        height: 4,
       })
     },
     onSuccess: (card) => {
@@ -129,9 +148,15 @@ export default function DashboardBuilder() {
     }
   }
 
-  const handleAddCard = (questionId: number) => {
+  const handleAddMetabaseCard = (questionId: number) => {
     if (dashboardId) {
-      addCardMutation.mutate({ dashboardId, questionId })
+      addMetabaseCardMutation.mutate({ dashboardId, questionId })
+    }
+  }
+
+  const handleAddVisualizationCard = (visualizationId: number) => {
+    if (dashboardId) {
+      addVisualizationCardMutation.mutate({ dashboardId, visualizationId })
     }
   }
 
@@ -284,7 +309,8 @@ export default function DashboardBuilder() {
       <AddCardModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddCard}
+        onAddMetabaseQuestion={handleAddMetabaseCard}
+        onAddVisualization={handleAddVisualizationCard}
       />
     </div>
   )

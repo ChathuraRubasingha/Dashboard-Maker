@@ -25,6 +25,16 @@ from app.schemas.metabase import (
     MetabaseDashboard,
     MetabaseQuestion,
 )
+from app.schemas.report import (
+    ReportCreate,
+    ReportUpdate,
+    ReportResponse,
+    ReportListResponse,
+    ReportBlock,
+    BlockType,
+    ExportRequest,
+    ShareResponse,
+)
 
 __all__ = [
     "DashboardCreate",
@@ -48,4 +58,12 @@ __all__ = [
     "MetabaseQueryResult",
     "MetabaseDashboard",
     "MetabaseQuestion",
+    "ReportCreate",
+    "ReportUpdate",
+    "ReportResponse",
+    "ReportListResponse",
+    "ReportBlock",
+    "BlockType",
+    "ExportRequest",
+    "ShareResponse",
 ]

@@ -6,13 +6,17 @@ import {
   Settings,
   Menu,
   X,
+  PlusSquare,
+  FileText,
 } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'
 
 const navigation = [
   { name: 'Dashboards', href: '/dashboards', icon: LayoutDashboard },
+  { name: 'Reports', href: '/reports', icon: FileText },
   { name: 'Visualizations', href: '/visualizations', icon: BarChart3 },
+  { name: 'Query Builder', href: '/query-builder', icon: PlusSquare },
   { name: 'Databases', href: '/databases', icon: Database },
 ]
 

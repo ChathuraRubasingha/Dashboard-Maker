@@ -37,6 +37,7 @@ class Visualization(Base):
 
     # Metadata
     is_archived = Column(Boolean, default=False)
+    is_query_locked = Column(Boolean, default=True)  # Lock query after creation (edit appearance only)
     collection_id = Column(Integer, nullable=True)  # Metabase collection ID
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

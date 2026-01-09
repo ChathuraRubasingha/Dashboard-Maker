@@ -176,6 +176,7 @@ export interface Visualization {
   visualization_type: VisualizationType
   visualization_settings: Record<string, unknown>
   is_archived: boolean
+  is_query_locked: boolean
   collection_id: number | null
   created_at: string
   updated_at: string | null
@@ -199,6 +200,7 @@ export interface VisualizationCreate {
 
 export interface VisualizationUpdate extends Partial<VisualizationCreate> {
   is_archived?: boolean
+  is_query_locked?: boolean
   collection_id?: number
 }
 
@@ -358,4 +360,103 @@ export interface GridLayouts {
   md: GridLayout[]
   sm: GridLayout[]
   xs: GridLayout[]
+}
+
+// Report types
+export type BlockType = 'text' | 'visualization' | 'table' | 'divider'
+
+export interface TextBlockStyle {
+  fontSize: number
+  fontWeight: 'normal' | 'bold'
+  textAlign: 'left' | 'center' | 'right'
+  color: string
+}
+
+export interface TextBlockConfig {
+  content: string
+  style: TextBlockStyle
+}
+
+export interface VisualizationBlockConfig {
+  visualization_id: number
+  show_title: boolean
+  show_description: boolean
+  height: number
+}
+
+export interface TableBlockConfig {
+  visualization_id: number
+  show_title: boolean
+  export_all_rows: boolean
+  max_preview_rows: number
+}
+
+export interface DividerBlockConfig {
+  style: 'solid' | 'dashed' | 'dotted'
+  color: string
+  margin: number
+}
+
+export interface ReportBlock {
+  id: string
+  type: BlockType
+  order: number
+  config: TextBlockConfig | VisualizationBlockConfig | TableBlockConfig | DividerBlockConfig
+}
+
+export interface PageSettings {
+  page_size: 'A4' | 'Letter' | 'Legal'
+  orientation: 'portrait' | 'landscape'
+  margins: {
+    top: number
+    right: number
+    bottom: number
+    left: number
+  }
+}
+
+export interface Report {
+  id: number
+  name: string
+  description: string | null
+  blocks: ReportBlock[]
+  settings: PageSettings
+  is_public: boolean
+  share_token: string | null
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ReportListItem {
+  id: number
+  name: string
+  description: string | null
+  block_count: number
+  is_public: boolean
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ReportCreate {
+  name: string
+  description?: string
+  blocks?: ReportBlock[]
+  settings?: PageSettings
+}
+
+export interface ReportUpdate {
+  name?: string
+  description?: string
+  blocks?: ReportBlock[]
+  settings?: PageSettings
+  is_public?: boolean
+  is_archived?: boolean
+}
+
+export interface ShareResponse {
+  share_url: string
+  share_token: string
+  is_public: boolean
 }

@@ -81,14 +81,36 @@ async def update_visualization(
     _api_key: str = Depends(verify_api_key),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a visualization."""
+    """Update a visualization.
+
+    If the query is locked (is_query_locked=True), only appearance-related fields
+    can be updated: name, description, visualization_type, visualization_settings,
+    is_archived, and collection_id. Query-related fields (database_id, query_type,
+    native_query, mbql_query) cannot be modified.
+    """
     service = VisualizationService(db)
-    visualization = await service.update_visualization(visualization_id, data)
-    if not visualization:
+
+    # First, get the existing visualization to check lock status
+    existing = await service.get_visualization(visualization_id)
+    if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Visualization not found",
         )
+
+    # If query is locked, prevent modifications to query-related fields
+    if existing.is_query_locked:
+        query_fields = ['database_id', 'query_type', 'native_query', 'mbql_query', 'metabase_question_id']
+        update_data = data.model_dump(exclude_unset=True)
+
+        locked_field_updates = [f for f in query_fields if f in update_data and update_data[f] is not None]
+        if locked_field_updates:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Query is locked. Cannot modify: {', '.join(locked_field_updates)}. Only appearance settings can be changed.",
+            )
+
+    visualization = await service.update_visualization(visualization_id, data)
     return visualization
 
 

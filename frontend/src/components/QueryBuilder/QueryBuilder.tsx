@@ -284,7 +284,10 @@ export default function QueryBuilder() {
           </div>
 
           <button
-            onClick={() => setIsResultsModalOpen(true)}
+            onClick={() => {
+              handleExecuteQuery()
+              setIsResultsModalOpen(true)
+            }}
             disabled={isExecuting}
             className="px-5 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all hover:shadow-md"
           >
@@ -411,7 +414,7 @@ export default function QueryBuilder() {
         isExecuting={isExecuting}
         error={error}
         mbqlPreview={mbqlPreview}
-        onExecute={handleExecuteQuery}
+        databaseId={databaseId}
       />
     </DndContext>
   )

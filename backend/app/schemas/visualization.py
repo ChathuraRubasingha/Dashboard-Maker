@@ -93,6 +93,7 @@ class VisualizationUpdate(BaseModel):
     visualization_type: Optional[str] = None
     visualization_settings: Optional[Dict[str, Any]] = None
     is_archived: Optional[bool] = None
+    is_query_locked: Optional[bool] = None
     collection_id: Optional[int] = None
 
 
@@ -100,6 +101,7 @@ class VisualizationResponse(VisualizationBase):
     id: int
     metabase_question_id: Optional[int] = None
     is_archived: bool
+    is_query_locked: bool = True
     collection_id: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
