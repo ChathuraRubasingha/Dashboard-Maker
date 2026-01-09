@@ -3,7 +3,7 @@ import { Settings, Download } from 'lucide-react'
 import { useState } from 'react'
 import { visualizationService } from '../../services/visualizationService'
 import { metabaseService } from '../../services/metabaseService'
-import type { TableBlockConfig, QueryResult } from '../../types'
+import type { TableBlockConfig } from '../../types'
 
 interface TableBlockProps {
   config: TableBlockConfig
@@ -22,33 +22,53 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
   })
 
   // Execute query
-  const { data: queryResult, isLoading: isLoadingQuery } = useQuery({
-    queryKey: ['visualization-query', config.visualization_id],
+  const { data: queryResult, isLoading: isLoadingQuery, error: queryError } = useQuery({
+    queryKey: ['visualization-query', config.visualization_id, visualization?.database_id],
     queryFn: async () => {
       if (!visualization) return null
 
-      // Build the dataset query
-      let datasetQuery: any
+      try {
+        // Handle MBQL query
+        if (visualization.query_type === 'mbql' && visualization.mbql_query) {
+          // Check if mbql_query contains the full dataset query structure
+          const storedQuery = visualization.mbql_query as unknown as {
+            database?: number
+            type?: string
+            query?: object
+          }
 
-      if (visualization.query_type === 'native' && visualization.native_query) {
-        datasetQuery = {
-          database: visualization.database_id,
-          type: 'native',
-          native: { query: visualization.native_query },
+          if (storedQuery.database && storedQuery.query) {
+            // Full dataset query object stored
+            return await metabaseService.executeQuery({
+              database: storedQuery.database,
+              type: 'query',
+              query: storedQuery.query as any,
+            })
+          } else {
+            // Just the MBQL query object
+            return await metabaseService.executeQuery({
+              database: visualization.database_id!,
+              type: 'query',
+              query: visualization.mbql_query,
+            })
+          }
         }
-      } else if (visualization.mbql_query) {
-        datasetQuery = {
-          database: visualization.database_id,
-          type: 'query',
-          query: visualization.mbql_query,
+
+        // Handle native query
+        if (visualization.query_type === 'native' && visualization.native_query) {
+          return await metabaseService.executeNativeQuery(
+            visualization.database_id!,
+            visualization.native_query
+          )
         }
-      } else {
+
         return null
+      } catch (err) {
+        console.error('TableBlock: Query execution failed', err)
+        throw err
       }
-
-      return metabaseService.executeQuery(datasetQuery)
     },
-    enabled: !!visualization,
+    enabled: !!visualization && !!(visualization.native_query || visualization.mbql_query),
   })
 
   const isLoading = isLoadingViz || isLoadingQuery
@@ -153,6 +173,11 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
         ) : !visualization ? (
           <div className="h-48 flex items-center justify-center text-gray-500">
             Visualization not found
+          </div>
+        ) : queryError ? (
+          <div className="h-48 flex flex-col items-center justify-center text-red-500 px-4 text-center">
+            <p className="font-medium">Failed to load data</p>
+            <p className="text-sm mt-1">{queryError instanceof Error ? queryError.message : 'Unknown error'}</p>
           </div>
         ) : !queryResult || queryResult.data.rows.length === 0 ? (
           <div className="h-48 flex items-center justify-center text-gray-500">

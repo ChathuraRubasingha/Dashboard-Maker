@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { visualizationService } from '../../services/visualizationService'
 import { metabaseService } from '../../services/metabaseService'
 import ChartRenderer from '../ChartRenderer'
-import type { VisualizationBlockConfig, QueryResult } from '../../types'
+import type { VisualizationBlockConfig } from '../../types'
 
 interface VisualizationBlockProps {
   config: VisualizationBlockConfig
@@ -26,37 +26,63 @@ export default function VisualizationBlock({
     enabled: !!config.visualization_id,
   })
 
-  // Execute query
-  const { data: queryResult, isLoading: isLoadingQuery } = useQuery({
-    queryKey: ['visualization-query', config.visualization_id],
+  // Execute query - include visualization data in queryKey to ensure refetch when it changes
+  const { data: queryResult, isLoading: isLoadingQuery, error: queryError } = useQuery({
+    queryKey: ['visualization-query', config.visualization_id, visualization?.database_id],
     queryFn: async () => {
       if (!visualization) return null
 
-      // Build the dataset query
-      let datasetQuery: any
+      try {
+        // Handle MBQL query
+        if (visualization.query_type === 'mbql' && visualization.mbql_query) {
+          // Check if mbql_query contains the full dataset query structure
+          const storedQuery = visualization.mbql_query as unknown as {
+            database?: number
+            type?: string
+            query?: object
+          }
 
-      if (visualization.query_type === 'native' && visualization.native_query) {
-        datasetQuery = {
-          database: visualization.database_id,
-          type: 'native',
-          native: { query: visualization.native_query },
+          if (storedQuery.database && storedQuery.query) {
+            // Full dataset query object stored
+            return await metabaseService.executeQuery({
+              database: storedQuery.database,
+              type: 'query',
+              query: storedQuery.query as any,
+            })
+          } else {
+            // Just the MBQL query object
+            return await metabaseService.executeQuery({
+              database: visualization.database_id!,
+              type: 'query',
+              query: visualization.mbql_query,
+            })
+          }
         }
-      } else if (visualization.mbql_query) {
-        datasetQuery = {
-          database: visualization.database_id,
-          type: 'query',
-          query: visualization.mbql_query,
+
+        // Handle native query
+        if (visualization.query_type === 'native' && visualization.native_query) {
+          return await metabaseService.executeNativeQuery(
+            visualization.database_id!,
+            visualization.native_query
+          )
         }
-      } else {
+
+        console.log('VisualizationBlock: No valid query found', { visualization })
         return null
+      } catch (err) {
+        console.error('VisualizationBlock: Query execution failed', err)
+        throw err
       }
-
-      return metabaseService.executeQuery(datasetQuery)
     },
-    enabled: !!visualization,
+    enabled: !!visualization && !!(visualization.native_query || visualization.mbql_query),
   })
 
   const isLoading = isLoadingViz || isLoadingQuery
+
+  // Debug logging
+  if (queryError) {
+    console.error('VisualizationBlock query error:', queryError)
+  }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -127,6 +153,11 @@ export default function VisualizationBlock({
           <div className="h-full flex items-center justify-center text-gray-500">
             Visualization not found
           </div>
+        ) : queryError ? (
+          <div className="h-full flex flex-col items-center justify-center text-red-500 px-4 text-center">
+            <p className="font-medium">Failed to load data</p>
+            <p className="text-sm mt-1">{queryError instanceof Error ? queryError.message : 'Unknown error'}</p>
+          </div>
         ) : !queryResult ? (
           <div className="h-full flex items-center justify-center text-gray-500">
             No data available
@@ -135,8 +166,11 @@ export default function VisualizationBlock({
           <ChartRenderer
             type={visualization.visualization_type}
             data={queryResult}
-            settings={visualization.visualization_settings}
-            customization={visualization.customization}
+            colors={visualization.customization?.custom_colors}
+            showLegend={visualization.customization?.show_legend ?? true}
+            showGrid={visualization.customization?.show_grid ?? true}
+            xAxisLabel={visualization.customization?.x_axis_label ?? undefined}
+            yAxisLabel={visualization.customization?.y_axis_label ?? undefined}
           />
         )}
       </div>

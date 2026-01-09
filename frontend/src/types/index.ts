@@ -368,6 +368,7 @@ export type BlockType = 'text' | 'visualization' | 'table' | 'divider'
 export interface TextBlockStyle {
   fontSize: number
   fontWeight: 'normal' | 'bold'
+  fontStyle?: 'normal' | 'italic'
   textAlign: 'left' | 'center' | 'right'
   color: string
 }
