@@ -19,12 +19,13 @@ import TableSelector from './TableSelector'
 import QueryCanvas from './QueryCanvas'
 import ColumnPanel from './ColumnPanel'
 import FilterPanel from './FilterPanel'
-import ResultsPanel from './ResultsPanel'
+import ResultsModal from './ResultsModal'
 import JoinConfigModal from './JoinConfigModal'
 
 
 export default function QueryBuilder() {
   const [activeItem, setActiveItem] = useState<DragItem | null>(null)
+  const [isResultsModalOpen, setIsResultsModalOpen] = useState(false)
   const [joinModalState, setJoinModalState] = useState<{
     isOpen: boolean
     sourceTable: CanvasTable | null
@@ -260,17 +261,80 @@ export default function QueryBuilder() {
       onDragEnd={handleDragEnd}
       collisionDetection={closestCenter}
     >
-      <div className="flex flex-col h-full bg-gray-50">
+      <div className="flex flex-col h-full bg-gray-100">
+        {/* Top toolbar */}
+        <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-gray-800">Query Builder</h1>
+            {tables.length > 0 && (
+              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                {tables.length} table{tables.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {columns.length > 0 && (
+              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                {columns.length} column{columns.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {filters.length > 0 && (
+              <span className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded-full">
+                {filters.length} filter{filters.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={() => setIsResultsModalOpen(true)}
+            disabled={isExecuting}
+            className="px-5 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all hover:shadow-md"
+          >
+            {isExecuting ? (
+              <>
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Running...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                Run Query
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="mx-4 mt-3 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="ml-auto p-1 hover:bg-red-100 rounded"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Main content area */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden p-4 gap-4">
           {/* Left sidebar - Table selector */}
-          <div className="w-64 flex-shrink-0">
+          <div className="w-72 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <TableSelector />
           </div>
 
           {/* Center - Query Canvas */}
-          <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex-1 min-h-[300px]">
+          <div className="flex-1 flex flex-col min-w-0 gap-4">
+            <div className="flex-1 min-h-[350px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <QueryCanvas
                 tables={tables}
                 joins={joins}
@@ -282,10 +346,10 @@ export default function QueryBuilder() {
               />
             </div>
 
-            {/* Bottom panels */}
-            <div className="h-64 flex border-t border-gray-200">
+            {/* Bottom panels - side by side */}
+            <div className="flex gap-4 h-72">
               {/* Column panel */}
-              <div className="w-72 flex-shrink-0">
+              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <ColumnPanel
                   columns={columns}
                   onUpdateColumn={updateColumn}
@@ -294,24 +358,13 @@ export default function QueryBuilder() {
               </div>
 
               {/* Filter panel */}
-              <div className="w-80 flex-shrink-0 border-l border-gray-200">
+              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <FilterPanel
                   filters={filters}
                   tables={tables}
                   onAddFilter={addFilter}
                   onUpdateFilter={updateFilter}
                   onRemoveFilter={removeFilter}
-                />
-              </div>
-
-              {/* Results panel */}
-              <div className="flex-1 border-l border-gray-200">
-                <ResultsPanel
-                  queryResult={queryResult}
-                  isExecuting={isExecuting}
-                  error={error}
-                  mbqlPreview={mbqlPreview}
-                  onExecute={handleExecuteQuery}
                 />
               </div>
             </div>
@@ -348,6 +401,17 @@ export default function QueryBuilder() {
         targetTable={joinModalState.targetTable}
         existingJoin={joinModalState.existingJoin}
         tables={tables}
+      />
+
+      {/* Results modal */}
+      <ResultsModal
+        isOpen={isResultsModalOpen}
+        onClose={() => setIsResultsModalOpen(false)}
+        queryResult={queryResult}
+        isExecuting={isExecuting}
+        error={error}
+        mbqlPreview={mbqlPreview}
+        onExecute={handleExecuteQuery}
       />
     </DndContext>
   )
