@@ -10,6 +10,15 @@ import {
   Edit3,
   ArrowLeft,
   Share2,
+  LayoutGrid,
+  Clock,
+  Layers,
+  Palette,
+  ChevronDown,
+  Check,
+  X,
+  Maximize2,
+  RotateCcw,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { dashboardService } from '../services/dashboardService'
@@ -22,6 +31,17 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
+
+// Background color presets
+const backgroundPresets = [
+  { name: 'White', value: '#ffffff' },
+  { name: 'Light Gray', value: '#f9fafb' },
+  { name: 'Cool Gray', value: '#f3f4f6' },
+  { name: 'Warm Gray', value: '#fafaf9' },
+  { name: 'Blue Tint', value: '#f0f9ff' },
+  { name: 'Indigo Tint', value: '#eef2ff' },
+  { name: 'Slate', value: '#f8fafc' },
+]
 
 export default function DashboardBuilder() {
   const { id } = useParams<{ id: string }>()
@@ -43,6 +63,9 @@ export default function DashboardBuilder() {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false)
+  const [showBgDropdown, setShowBgDropdown] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const dashboardId = id ? parseInt(id, 10) : undefined
 
@@ -58,6 +81,16 @@ export default function DashboardBuilder() {
     }
   }, [dashboard, setCurrentDashboard])
 
+  // Handle fullscreen mode
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [isFullscreen])
 
   // Add Metabase question card
   const addMetabaseCardMutation = useMutation({
@@ -102,6 +135,8 @@ export default function DashboardBuilder() {
       dashboardService.updateCardsBulk(data.dashboardId, data.cards),
     onSuccess: () => {
       setHasUnsavedChanges(false)
+      // Refetch dashboard to ensure state is in sync with server
+      queryClient.invalidateQueries({ queryKey: ['dashboard', dashboardId] })
     },
   })
 
@@ -115,12 +150,46 @@ export default function DashboardBuilder() {
   })
 
   const handleLayoutChange = useCallback(
-    (_layout: GridLayout[], allLayouts: { [key: string]: GridLayout[] }) => {
+    (currentLayout: GridLayout[], allLayouts: { [key: string]: GridLayout[] }) => {
       if (!isEditing) return
+
+      // Update layouts state
       setLayouts(allLayouts)
-      setHasUnsavedChanges(true)
+
+      // Also update the currentDashboard.cards positions to keep them in sync
+      if (currentDashboard && currentLayout.length > 0) {
+        const updatedCards = currentDashboard.cards.map((card) => {
+          const layout = currentLayout.find((l) => l.i === String(card.id))
+          if (layout) {
+            return {
+              ...card,
+              position_x: layout.x,
+              position_y: layout.y,
+              width: layout.w,
+              height: layout.h,
+            }
+          }
+          return card
+        })
+
+        // Check if positions actually changed
+        const hasChanges = updatedCards.some((card, idx) => {
+          const original = currentDashboard.cards[idx]
+          return (
+            card.position_x !== original.position_x ||
+            card.position_y !== original.position_y ||
+            card.width !== original.width ||
+            card.height !== original.height
+          )
+        })
+
+        if (hasChanges) {
+          setCurrentDashboard({ ...currentDashboard, cards: updatedCards })
+          setHasUnsavedChanges(true)
+        }
+      }
     },
-    [isEditing, setLayouts, setHasUnsavedChanges]
+    [isEditing, setLayouts, setHasUnsavedChanges, currentDashboard, setCurrentDashboard]
   )
 
   const handleSave = async () => {
@@ -128,9 +197,12 @@ export default function DashboardBuilder() {
 
     setIsSaving(true)
     try {
-      // Save card positions
+      // Get the lg layout (primary), fallback to first available breakpoint
+      const lgLayout = layouts.lg || layouts.md || layouts.sm || layouts.xs || []
+
+      // Save card positions from the layout
       const cardsToUpdate = currentDashboard.cards.map((card) => {
-        const layout = layouts.lg?.find((l) => l.i === String(card.id))
+        const layout = lgLayout.find((l) => l.i === String(card.id))
         return {
           id: card.id,
           position_x: layout?.x ?? card.position_x,
@@ -140,6 +212,7 @@ export default function DashboardBuilder() {
         }
       })
 
+      console.log('Saving card positions:', cardsToUpdate)
       await updateCardsMutation.mutateAsync({ dashboardId, cards: cardsToUpdate })
     } catch (error) {
       console.error('Failed to save dashboard:', error)
@@ -166,112 +239,262 @@ export default function DashboardBuilder() {
     }
   }
 
+  const handleResetLayout = () => {
+    if (confirm('Reset all cards to their default positions?')) {
+      // Reset logic would go here
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center h-96">
+        <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-500 text-sm mt-4">Loading dashboard...</p>
       </div>
     )
   }
 
   if (!currentDashboard) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Dashboard not found</p>
+      <div className="text-center py-16">
+        <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <LayoutGrid className="w-10 h-10 text-gray-400" />
+        </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Dashboard not found</h2>
+        <p className="text-gray-500 mb-6">The dashboard you're looking for doesn't exist or has been removed.</p>
         <button
           onClick={() => navigate('/dashboards')}
-          className="mt-4 text-blue-600 hover:underline"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors"
         >
-          Go back to dashboards
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboards
         </button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen -m-4 lg:-m-6">
-      {/* Toolbar */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 lg:px-6">
-        <div className="flex items-center justify-between h-14">
+    <div className={clsx(
+      'min-h-screen -m-4 lg:-m-6 transition-all duration-300',
+      isFullscreen && 'fixed inset-0 z-50 m-0'
+    )}>
+      {/* Modern Toolbar */}
+      <div className={clsx(
+        'sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/80',
+        isFullscreen && 'bg-white'
+      )}>
+        <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+          {/* Left side */}
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboards')}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <h1 className="text-lg font-semibold text-gray-900">{currentDashboard.name}</h1>
+            {!isFullscreen && (
+              <button
+                onClick={() => navigate('/dashboards')}
+                className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors group"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+              </button>
+            )}
+
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
+                <LayoutGrid className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">{currentDashboard.name}</h1>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Clock className="w-3 h-3" />
+                  <span>Last edited just now</span>
+                </div>
+              </div>
+            </div>
+
             {hasUnsavedChanges && (
-              <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium rounded-lg">
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
                 Unsaved changes
-              </span>
+              </div>
             )}
           </div>
 
+          {/* Right side */}
           <div className="flex items-center gap-2">
             {isEditing ? (
               <>
+                {/* Add Card Button */}
                 <button
                   onClick={() => setIsAddModalOpen(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-medium rounded-xl hover:bg-blue-100 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Card
+                  <span className="hidden sm:inline">Add Card</span>
                 </button>
+
+                {/* Save Button */}
                 <button
                   onClick={handleSave}
                   disabled={isSaving || !hasUnsavedChanges}
                   className={clsx(
-                    'flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg',
+                    'flex items-center gap-2 px-4 py-2 font-medium rounded-xl transition-all',
                     hasUnsavedChanges
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-100 text-gray-400'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   )}
                 >
-                  <Save className="w-4 h-4" />
-                  {isSaving ? 'Saving...' : 'Save'}
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="hidden sm:inline">Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span className="hidden sm:inline">Save</span>
+                    </>
+                  )}
                 </button>
+
+                {/* Divider */}
+                <div className="w-px h-8 bg-gray-200 mx-1" />
+
+                {/* Preview Button */}
                 <button
                   onClick={() => setEditing(false)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                  className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                 >
                   <Eye className="w-4 h-4" />
-                  Preview
+                  <span className="hidden sm:inline">Preview</span>
                 </button>
               </>
             ) : (
               <>
+                {/* Edit Button */}
                 <button
                   onClick={() => setEditing(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg"
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25"
                 >
                   <Edit3 className="w-4 h-4" />
-                  Edit
+                  <span className="hidden sm:inline">Edit Dashboard</span>
                 </button>
               </>
             )}
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <Share2 className="w-5 h-5 text-gray-600" />
+
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors"
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            >
+              {isFullscreen ? (
+                <X className="w-5 h-5 text-gray-500" />
+              ) : (
+                <Maximize2 className="w-5 h-5 text-gray-500" />
+              )}
             </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <Settings className="w-5 h-5 text-gray-600" />
+
+            {/* Share Button */}
+            <button className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors">
+              <Share2 className="w-5 h-5 text-gray-500" />
+            </button>
+
+            {/* Settings Button */}
+            <button
+              onClick={() => setShowSettingsPanel(!showSettingsPanel)}
+              className={clsx(
+                'p-2.5 rounded-xl transition-colors',
+                showSettingsPanel ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-500'
+              )}
+            >
+              <Settings className="w-5 h-5" />
             </button>
           </div>
         </div>
+
+        {/* Settings Panel */}
+        {showSettingsPanel && isEditing && (
+          <div className="border-t border-gray-200/80 bg-gray-50/80 backdrop-blur-xl px-4 lg:px-6 py-4">
+            <div className="flex items-center gap-6 flex-wrap">
+              {/* Background Color */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowBgDropdown(!showBgDropdown)}
+                  className="flex items-center gap-3 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <Palette className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">Background</span>
+                  <div
+                    className="w-5 h-5 rounded-md border border-gray-300"
+                    style={{ backgroundColor: currentDashboard.background_color }}
+                  />
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                </button>
+
+                {showBgDropdown && (
+                  <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-20 min-w-[180px]">
+                    {backgroundPresets.map((preset) => (
+                      <button
+                        key={preset.value}
+                        onClick={() => {
+                          // Update background color logic would go here
+                          setShowBgDropdown(false)
+                        }}
+                        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-50 flex items-center gap-3"
+                      >
+                        <div
+                          className="w-5 h-5 rounded-md border border-gray-200"
+                          style={{ backgroundColor: preset.value }}
+                        />
+                        <span>{preset.name}</span>
+                        {currentDashboard.background_color === preset.value && (
+                          <Check className="w-4 h-4 text-blue-600 ml-auto" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Grid Info */}
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl">
+                <Layers className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-700">
+                  {currentDashboard.cards.length} cards
+                </span>
+              </div>
+
+              {/* Reset Layout */}
+              <button
+                onClick={handleResetLayout}
+                className="flex items-center gap-2 px-4 py-2.5 text-gray-600 hover:bg-white border border-transparent hover:border-gray-200 rounded-xl transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="text-sm">Reset Layout</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Dashboard Canvas */}
       <div
-        className="p-4 lg:p-6 min-h-[calc(100vh-3.5rem)]"
+        className={clsx(
+          'p-4 lg:p-6 min-h-[calc(100vh-4rem)] transition-colors',
+          isFullscreen && 'min-h-screen'
+        )}
         style={{ backgroundColor: currentDashboard.background_color }}
       >
         {currentDashboard.cards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-gray-500 mb-4">No cards in this dashboard</p>
+          <div className="flex flex-col items-center justify-center h-[calc(100vh-12rem)] bg-white rounded-2xl border-2 border-dashed border-gray-200">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center mb-6">
+              <LayoutGrid className="w-10 h-10 text-blue-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No cards yet</h3>
+            <p className="text-gray-500 mb-6 text-center max-w-sm">
+              Add visualizations and charts to build your dashboard
+            </p>
             {isEditing && (
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25"
               >
                 <Plus className="w-5 h-5" />
                 Add Your First Card
@@ -285,7 +508,7 @@ export default function DashboardBuilder() {
             breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480 }}
             cols={{ lg: 12, md: 10, sm: 6, xs: 4 }}
             rowHeight={currentDashboard.layout_config?.row_height || 80}
-            margin={currentDashboard.layout_config?.margin || [10, 10]}
+            margin={currentDashboard.layout_config?.margin || [12, 12]}
             containerPadding={currentDashboard.layout_config?.container_padding || [0, 0]}
             onLayoutChange={handleLayoutChange}
             isDraggable={isEditing}
@@ -312,6 +535,14 @@ export default function DashboardBuilder() {
         onAddMetabaseQuestion={handleAddMetabaseCard}
         onAddVisualization={handleAddVisualizationCard}
       />
+
+      {/* Click outside to close dropdown */}
+      {showBgDropdown && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setShowBgDropdown(false)}
+        />
+      )}
     </div>
   )
 }

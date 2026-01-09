@@ -10,6 +10,7 @@ import {
   PointerSensor,
   MouseSensor,
 } from '@dnd-kit/core'
+import { Play, Table, Columns, Filter, X, Sparkles, GripVertical, AlertCircle, PanelLeftClose, PanelLeft } from 'lucide-react'
 
 import { useQueryBuilderStore } from '../../store/queryBuilderStore'
 import { metabaseService } from '../../services/metabaseService'
@@ -26,6 +27,7 @@ import JoinConfigModal from './JoinConfigModal'
 export default function QueryBuilder() {
   const [activeItem, setActiveItem] = useState<DragItem | null>(null)
   const [isResultsModalOpen, setIsResultsModalOpen] = useState(false)
+  const [isTableSelectorOpen, setIsTableSelectorOpen] = useState(true)
   const [joinModalState, setJoinModalState] = useState<{
     isOpen: boolean
     sourceTable: CanvasTable | null
@@ -57,8 +59,8 @@ export default function QueryBuilder() {
     joins,
     columns,
     filters,
-    
-    
+
+
     isExecuting,
     error,
     queryResult,
@@ -75,10 +77,10 @@ export default function QueryBuilder() {
     addFilter,
     updateFilter,
     removeFilter,
-    
-    
-    
-    
+
+
+
+
     setExecuting,
     setError,
     setQueryResult,
@@ -261,83 +263,111 @@ export default function QueryBuilder() {
       onDragEnd={handleDragEnd}
       collisionDetection={closestCenter}
     >
-      <div className="flex flex-col h-full bg-gray-100">
-        {/* Top toolbar */}
-        <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-gray-800">Query Builder</h1>
-            {tables.length > 0 && (
-              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
-                {tables.length} table{tables.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {columns.length > 0 && (
-              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                {columns.length} column{columns.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {filters.length > 0 && (
-              <span className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded-full">
-                {filters.length} filter{filters.length !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
+      <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-amber-50/30">
+        {/* Modern toolbar with backdrop blur */}
+        <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/80">
+          <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+            <div className="flex items-center gap-4">
+              {/* Amber gradient icon */}
+              <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg shadow-amber-500/25">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">Query Builder</h1>
+                <p className="text-xs text-gray-500">Visual query designer</p>
+              </div>
 
-          <button
-            onClick={() => {
-              handleExecuteQuery()
-              setIsResultsModalOpen(true)
-            }}
-            disabled={isExecuting}
-            className="px-5 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all hover:shadow-md"
-          >
-            {isExecuting ? (
-              <>
-                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Running...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                Run Query
-              </>
-            )}
-          </button>
+              {/* Stats badges */}
+              <div className="hidden sm:flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
+                {tables.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                    <Table className="w-3 h-3" />
+                    {tables.length} table{tables.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {columns.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                    <Columns className="w-3 h-3" />
+                    {columns.length} column{columns.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {filters.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-orange-50 text-orange-700 rounded-full border border-orange-200">
+                    <Filter className="w-3 h-3" />
+                    {filters.length} filter{filters.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Run Query button with amber gradient */}
+            <button
+              onClick={() => {
+                handleExecuteQuery()
+                setIsResultsModalOpen(true)
+              }}
+              disabled={isExecuting}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/30 hover:-translate-y-0.5"
+            >
+              {isExecuting ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" fill="currentColor" />
+                  Run Query
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Error banner */}
+        {/* Error banner with modern styling */}
         {error && (
-          <div className="mx-4 mt-3 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3">
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-sm">{error}</span>
+          <div className="mx-4 lg:mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3 shadow-sm">
+            <div className="p-1.5 bg-red-100 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-red-600" />
+            </div>
+            <span className="text-sm flex-1">{error}</span>
             <button
               onClick={() => setError(null)}
-              className="ml-auto p-1 hover:bg-red-100 rounded"
+              className="p-1.5 hover:bg-red-100 rounded-lg transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {/* Main content area */}
-        <div className="flex flex-1 overflow-hidden p-4 gap-4">
-          {/* Left sidebar - Table selector */}
-          <div className="w-72 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <TableSelector />
-          </div>
+        <div className="flex flex-1 overflow-hidden p-3 gap-3">
+          {/* Left sidebar - Table selector (collapsible) */}
+          {isTableSelectorOpen && (
+            <div className="w-64 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
+              <TableSelector />
+            </div>
+          )}
 
           {/* Center - Query Canvas */}
-          <div className="flex-1 flex flex-col min-w-0 gap-4">
-            <div className="flex-1 min-h-[350px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 gap-3">
+            {/* Canvas with toggle button */}
+            <div className="flex-1 min-h-[300px] bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden relative">
+              {/* Toggle sidebar button */}
+              <button
+                onClick={() => setIsTableSelectorOpen(!isTableSelectorOpen)}
+                className="absolute top-3 left-3 z-10 p-2 bg-white/90 hover:bg-gray-100 rounded-lg border border-gray-200 shadow-sm transition-colors"
+                title={isTableSelectorOpen ? 'Hide tables panel' : 'Show tables panel'}
+              >
+                {isTableSelectorOpen ? (
+                  <PanelLeftClose className="w-4 h-4 text-gray-600" />
+                ) : (
+                  <PanelLeft className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
               <QueryCanvas
                 tables={tables}
                 joins={joins}
@@ -350,9 +380,9 @@ export default function QueryBuilder() {
             </div>
 
             {/* Bottom panels - side by side */}
-            <div className="flex gap-4 h-72">
+            <div className="flex gap-3 h-56">
               {/* Column panel */}
-              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
                 <ColumnPanel
                   columns={columns}
                   onUpdateColumn={updateColumn}
@@ -361,7 +391,7 @@ export default function QueryBuilder() {
               </div>
 
               {/* Filter panel */}
-              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
                 <FilterPanel
                   filters={filters}
                   tables={tables}
@@ -375,21 +405,22 @@ export default function QueryBuilder() {
         </div>
       </div>
 
-      {/* Drag overlay */}
+      {/* Modern drag overlay */}
       <DragOverlay>
         {activeItem && (
-          <div className="px-3 py-2 bg-white border border-blue-500 rounded shadow-lg text-sm">
+          <div className="inline-flex items-center gap-2 px-3 py-2 bg-white border-2 border-amber-400 rounded-xl shadow-xl text-sm">
+            <GripVertical className="w-3.5 h-3.5 text-amber-500" />
             {activeItem.type === 'table' && (
-              <span className="font-medium">{activeItem.data.tableName}</span>
+              <span className="font-medium text-gray-900">{activeItem.data.tableName}</span>
             )}
             {activeItem.type === 'field' && (
               <span>
-                <span className="text-gray-500">{activeItem.data.tableName}.</span>
-                <span className="font-medium">{activeItem.data.fieldName}</span>
+                <span className="text-gray-400">{activeItem.data.tableName}.</span>
+                <span className="font-medium text-gray-900">{activeItem.data.fieldName}</span>
               </span>
             )}
             {activeItem.type === 'column' && (
-              <span className="font-medium">{activeItem.data.fieldName}</span>
+              <span className="font-medium text-gray-900">{activeItem.data.fieldName}</span>
             )}
           </div>
         )}

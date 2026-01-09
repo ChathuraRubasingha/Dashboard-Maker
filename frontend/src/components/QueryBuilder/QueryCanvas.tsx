@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import { Database } from 'lucide-react'
+import { Database, MousePointer2, Link2 } from 'lucide-react'
 import clsx from 'clsx'
 import TableNode from './TableNode'
 import JoinLine from './JoinLine'
@@ -62,15 +62,14 @@ export default function QueryCanvas({
     <div
       ref={setNodeRef}
       className={clsx(
-        'relative bg-gray-50 overflow-hidden h-full w-full',
-        isOver && 'ring-2 ring-inset ring-blue-400 bg-blue-50/30'
+        'relative overflow-hidden h-full w-full transition-all duration-200',
+        isOver ? 'bg-amber-50/50 ring-2 ring-inset ring-amber-400' : 'bg-gray-50/50'
       )}
       style={{
         backgroundImage: `
-          linear-gradient(to right, #e5e7eb 1px, transparent 1px),
-          linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
+          radial-gradient(circle, #d1d5db 1px, transparent 1px)
         `,
-        backgroundSize: '20px 20px',
+        backgroundSize: '24px 24px',
         minHeight: '400px',
       }}
       onClick={handleCancelJoin}
@@ -119,28 +118,49 @@ export default function QueryCanvas({
 
       {/* Empty state */}
       {tables.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-          <Database className="w-12 h-12 mb-3" />
-          <p className="text-lg font-medium">Drag tables here</p>
-          <p className="text-sm">Drop tables from the sidebar to start building your query</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl mb-4 shadow-sm">
+              <Database className="w-10 h-10 text-amber-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-1">Drop tables here</h3>
+            <p className="text-sm text-gray-500 max-w-xs">
+              Drag tables from the sidebar to start building your query
+            </p>
+            <div className="flex items-center justify-center gap-4 mt-6 text-xs text-gray-400">
+              <span className="flex items-center gap-1.5">
+                <MousePointer2 className="w-3.5 h-3.5" />
+                Double-click field to add
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5" />
+                Click link icon to join
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Drop indicator */}
       {isOver && tables.length > 0 && (
-        <div className="absolute inset-4 border-2 border-dashed border-blue-400 rounded-lg pointer-events-none" />
+        <div className="absolute inset-4 border-2 border-dashed border-amber-400 rounded-xl pointer-events-none bg-amber-50/30" />
       )}
 
       {/* Join mode indicator */}
       {joinStartTable && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-10">
-          Click another table to create a join from <strong>{joinStartTable.tableName}</strong>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleCancelJoin(); }}
-            className="ml-3 text-blue-200 hover:text-white"
-          >
-            Cancel
-          </button>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+          <div className="flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-amber-500/25">
+            <Link2 className="w-4 h-4" />
+            <span className="text-sm">
+              Click another table to join from <strong>{joinStartTable.tableName}</strong>
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleCancelJoin(); }}
+              className="ml-1 px-2 py-0.5 text-xs bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>

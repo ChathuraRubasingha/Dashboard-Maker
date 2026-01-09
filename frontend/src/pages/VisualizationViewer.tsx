@@ -14,7 +14,12 @@ import {
   Eye,
   EyeOff,
   ChevronRight,
+  BarChart3,
+  Clock,
+  Check,
+  X,
 } from "lucide-react";
+import clsx from "clsx";
 import { visualizationService } from "../services/visualizationService";
 import { metabaseService } from "../services/metabaseService";
 import ChartRenderer from "../components/ChartRenderer";
@@ -41,6 +46,7 @@ export default function VisualizationViewer() {
   >({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [viewType, setViewType] = useState<VisualizationType>("table");
+  const [copied, setCopied] = useState(false);
 
   // Fetch visualization
   const {
@@ -175,13 +181,18 @@ export default function VisualizationViewer() {
     setShowMenu(false);
   };
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    setShowMenu(false);
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-500">Loading visualization...</span>
-        </div>
+      <div className="flex flex-col items-center justify-center h-96">
+        <div className="w-12 h-12 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-500 text-sm mt-4">Loading visualization...</p>
       </div>
     );
   }
@@ -189,13 +200,18 @@ export default function VisualizationViewer() {
   if (error || !visualization) {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <div className="text-red-500 text-lg">
-          {error instanceof Error ? error.message : "Visualization not found"}
+        <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mb-2">
+          <X className="w-10 h-10 text-red-500" />
         </div>
+        <h2 className="text-xl font-semibold text-gray-900">Visualization not found</h2>
+        <p className="text-gray-500">
+          {error instanceof Error ? error.message : "The visualization you're looking for doesn't exist."}
+        </p>
         <Link
           to="/visualizations"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors"
         >
+          <ArrowLeft className="w-4 h-4" />
           Back to Visualizations
         </Link>
       </div>
@@ -215,35 +231,46 @@ export default function VisualizationViewer() {
 
   return (
     <div className="min-h-screen -m-4 lg:-m-6 flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 lg:px-6">
-        <div className="flex items-center justify-between h-14">
+      {/* Modern Header */}
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/80">
+        <div className="flex items-center justify-between h-16 px-4 lg:px-6">
           {/* Left: Back + Title */}
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate("/visualizations")}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors group"
               title="Back to visualizations"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
             </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold text-gray-900">
-                  {visualization.name}
-                </h1>
-                {visualization.is_query_locked && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
-                    <Lock className="w-3 h-3" />
-                    Query Locked
-                  </span>
+
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl">
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-semibold text-gray-900">
+                    {visualization.name}
+                  </h1>
+                  {visualization.is_query_locked && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
+                      <Lock className="w-3 h-3" />
+                      Query Locked
+                    </span>
+                  )}
+                </div>
+                {visualization.description ? (
+                  <p className="text-xs text-gray-500 truncate max-w-md">
+                    {visualization.description}
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Clock className="w-3 h-3" />
+                    <span>Created recently</span>
+                  </div>
                 )}
               </div>
-              {visualization.description && (
-                <p className="text-xs text-gray-500">
-                  {visualization.description}
-                </p>
-              )}
             </div>
           </div>
 
@@ -251,31 +278,31 @@ export default function VisualizationViewer() {
           <div className="flex items-center gap-2">
             {/* Unsaved changes indicator */}
             {hasUnsavedChanges && (
-              <span className="text-sm text-amber-600 mr-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium rounded-lg">
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
                 Unsaved changes
-              </span>
+              </div>
             )}
 
             {/* Refresh */}
             <button
               onClick={executeQuery}
               disabled={isExecuting}
-              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 disabled:opacity-50"
+              className="p-2.5 hover:bg-gray-100 rounded-xl text-gray-600 disabled:opacity-50 transition-colors"
               title="Refresh data"
             >
-              <RefreshCw
-                className={`w-5 h-5 ${isExecuting ? "animate-spin" : ""}`}
-              />
+              <RefreshCw className={clsx("w-5 h-5", isExecuting && "animate-spin")} />
             </button>
 
             {/* Toggle Query View */}
             <button
               onClick={() => setShowQuery(!showQuery)}
-              className={`p-2 rounded-lg transition-colors ${
+              className={clsx(
+                "p-2.5 rounded-xl transition-colors",
                 showQuery
                   ? "bg-gray-800 text-white"
                   : "hover:bg-gray-100 text-gray-600"
-              }`}
+              )}
               title={showQuery ? "Hide query" : "Show query"}
             >
               {showQuery ? (
@@ -288,11 +315,12 @@ export default function VisualizationViewer() {
             {/* Toggle Customization Panel */}
             <button
               onClick={() => setShowCustomization(!showCustomization)}
-              className={`p-2 rounded-lg transition-colors ${
+              className={clsx(
+                "p-2.5 rounded-xl transition-colors",
                 showCustomization
-                  ? "bg-blue-600 text-white"
+                  ? "bg-emerald-600 text-white"
                   : "hover:bg-gray-100 text-gray-600"
-              }`}
+              )}
               title="Customize appearance"
             >
               <Settings className="w-5 h-5" />
@@ -303,11 +331,13 @@ export default function VisualizationViewer() {
               <button
                 onClick={() => saveCustomizationMutation.mutate()}
                 disabled={saveCustomizationMutation.isPending}
-                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 shadow-lg shadow-emerald-500/25 transition-all"
               >
                 {saveCustomizationMutation.isPending ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : null}
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
                 Save Changes
               </button>
             )}
@@ -315,7 +345,7 @@ export default function VisualizationViewer() {
             {/* Edit Button */}
             <button
               onClick={() => navigate(`/visualizations/${id}/edit`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors"
             >
               <Edit2 className="w-4 h-4" />
               Edit
@@ -325,7 +355,7 @@ export default function VisualizationViewer() {
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+                className="p-2.5 hover:bg-gray-100 rounded-xl text-gray-600 transition-colors"
               >
                 <MoreVertical className="w-5 h-5" />
               </button>
@@ -336,23 +366,24 @@ export default function VisualizationViewer() {
                     className="fixed inset-0 z-10"
                     onClick={() => setShowMenu(false)}
                   />
-                  <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-20">
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.href);
-                        setShowMenu(false);
-                      }}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={handleCopyLink}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      <Copy className="w-4 h-4" />
-                      Copy Link
+                      {copied ? (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                      {copied ? "Copied!" : "Copy Link"}
                     </button>
                     <button
                       onClick={() => {
                         // TODO: Implement export
                         setShowMenu(false);
                       }}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <Download className="w-4 h-4" />
                       Export Data
@@ -360,7 +391,7 @@ export default function VisualizationViewer() {
                     <hr className="my-1 border-gray-200" />
                     <button
                       onClick={handleDelete}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete
@@ -376,7 +407,7 @@ export default function VisualizationViewer() {
       {/* Query Preview Panel */}
       {showQuery && visualization.mbql_query && (
         <div className="bg-gray-900 px-6 py-4 border-b border-gray-700">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
               Query (Read-Only)
             </span>
@@ -384,7 +415,7 @@ export default function VisualizationViewer() {
               <Lock className="w-3 h-3 text-amber-400" />
             )}
           </div>
-          <pre className="text-sm text-green-400 overflow-x-auto font-mono max-h-48 overflow-y-auto">
+          <pre className="text-sm text-emerald-400 overflow-x-auto font-mono max-h-48 overflow-y-auto bg-gray-800/50 rounded-xl p-4">
             {JSON.stringify(visualization.mbql_query, null, 2)}
           </pre>
         </div>
@@ -396,56 +427,33 @@ export default function VisualizationViewer() {
         <div className="flex-1 p-4 lg:p-6 overflow-auto">
           {/* Error Banner */}
           {executeError && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3">
-              <svg
-                className="w-5 h-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3">
+              <X className="w-5 h-5 flex-shrink-0" />
               <span className="text-sm">{executeError}</span>
               <button
                 onClick={() => setExecuteError(null)}
-                className="ml-auto p-1 hover:bg-red-100 rounded"
+                className="ml-auto p-1.5 hover:bg-red-100 rounded-lg"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
 
           {/* View Type Selector */}
           <div className="mb-4 flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-1 bg-white rounded-xl p-1 shadow-sm border border-gray-200">
               {(
                 ["table", "bar", "line", "area", "pie"] as VisualizationType[]
               ).map((type) => (
                 <button
                   key={type}
                   onClick={() => handleViewTypeChange(type)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors capitalize ${
+                  className={clsx(
+                    "px-4 py-2 text-sm font-medium rounded-lg transition-all capitalize",
                     viewType === type
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm"
                       : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                  }`}
+                  )}
                 >
                   {type}
                 </button>
@@ -453,18 +461,17 @@ export default function VisualizationViewer() {
             </div>
 
             {queryResult && (
-              <span className="text-sm text-gray-500">
-                {queryResult.row_count} row
-                {queryResult.row_count !== 1 ? "s" : ""}
+              <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
+                {queryResult.row_count} row{queryResult.row_count !== 1 ? "s" : ""}
               </span>
             )}
           </div>
 
           {/* Chart/Table Display */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-280px)]">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-280px)]">
             {isExecuting ? (
               <div className="flex flex-col items-center justify-center h-full">
-                <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+                <div className="w-12 h-12 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mb-4" />
                 <span className="text-gray-500">Executing query...</span>
               </div>
             ) : queryResult ? (
@@ -488,16 +495,22 @@ export default function VisualizationViewer() {
                     showGrid={localCustomization.show_grid !== false}
                     xAxisLabel={localCustomization.x_axis_label || undefined}
                     yAxisLabel={localCustomization.y_axis_label || undefined}
+                    customLabels={localCustomization.custom_labels || {}}
                   />
                 </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                <p>No data available</p>
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                  <BarChart3 className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="font-medium text-gray-900 mb-2">No data available</p>
+                <p className="text-sm text-gray-500 mb-4">Run the query to see your data</p>
                 <button
                   onClick={executeQuery}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all shadow-lg shadow-emerald-500/25"
                 >
+                  <RefreshCw className="w-4 h-4" />
                   Run Query
                 </button>
               </div>
@@ -508,17 +521,22 @@ export default function VisualizationViewer() {
         {/* Customization Sidebar */}
         {showCustomization && (
           <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-5 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Customize</h3>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-100 rounded-xl">
+                    <Settings className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900">Customize</h3>
+                </div>
                 <button
                   onClick={() => setShowCustomization(false)}
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <ChevronRight className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 mt-2">
                 Customize colors, labels, and display options
               </p>
             </div>
@@ -527,6 +545,7 @@ export default function VisualizationViewer() {
                 customization={localCustomization}
                 visualizationType={viewType}
                 onChange={handleCustomizationChange}
+                columns={queryResult?.data?.cols || []}
               />
             </div>
           </div>

@@ -174,6 +174,7 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
                 showGrid={customization.show_grid !== false}
                 xAxisLabel={customization.x_axis_label || undefined}
                 yAxisLabel={customization.y_axis_label || undefined}
+                customLabels={customization.custom_labels || {}}
               />
             )}
           </div>
@@ -304,6 +305,7 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
             showGrid={customization.show_grid !== false}
             xAxisLabel={customization.x_axis_label || undefined}
             yAxisLabel={customization.y_axis_label || undefined}
+            customLabels={customization.custom_labels || {}}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

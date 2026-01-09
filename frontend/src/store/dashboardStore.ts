@@ -51,17 +51,23 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   setCurrentDashboard: (dashboard) => {
     if (dashboard) {
-      // Convert cards to grid layouts
+      // Convert cards to grid layouts for all breakpoints
+      const cardLayouts = dashboard.cards.map((card) => ({
+        i: String(card.id),
+        x: card.position_x,
+        y: card.position_y,
+        w: card.width,
+        h: card.height,
+        minW: 2,
+        minH: 2,
+      }))
+
+      // Initialize layouts for all breakpoints (responsive)
       const layouts: { [breakpoint: string]: GridLayout[] } = {
-        lg: dashboard.cards.map((card) => ({
-          i: String(card.id),
-          x: card.position_x,
-          y: card.position_y,
-          w: card.width,
-          h: card.height,
-          minW: 2,
-          minH: 2,
-        })),
+        lg: cardLayouts,
+        md: cardLayouts.map(l => ({ ...l, w: Math.min(l.w, 10) })),
+        sm: cardLayouts.map(l => ({ ...l, w: Math.min(l.w, 6), x: Math.min(l.x, 6 - Math.min(l.w, 6)) })),
+        xs: cardLayouts.map(l => ({ ...l, w: Math.min(l.w, 4), x: 0 })),
       }
       set({ currentDashboard: dashboard, layouts, hasUnsavedChanges: false })
     } else {
@@ -111,7 +117,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   addCard: (card) => {
-    const { currentDashboard, layouts, currentBreakpoint } = get()
+    const { currentDashboard, layouts } = get()
     if (!currentDashboard) return
 
     const newLayout: GridLayout = {
@@ -124,17 +130,20 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       minH: 2,
     }
 
-    const currentLayouts = layouts[currentBreakpoint] || []
+    // Add to all breakpoints
+    const updatedLayouts = {
+      lg: [...(layouts.lg || []), newLayout],
+      md: [...(layouts.md || []), { ...newLayout, w: Math.min(newLayout.w, 10) }],
+      sm: [...(layouts.sm || []), { ...newLayout, w: Math.min(newLayout.w, 6), x: 0 }],
+      xs: [...(layouts.xs || []), { ...newLayout, w: Math.min(newLayout.w, 4), x: 0 }],
+    }
 
     set({
       currentDashboard: {
         ...currentDashboard,
         cards: [...currentDashboard.cards, card],
       },
-      layouts: {
-        ...layouts,
-        [currentBreakpoint]: [...currentLayouts, newLayout],
-      },
+      layouts: updatedLayouts,
       hasUnsavedChanges: true,
     })
   },
@@ -154,16 +163,23 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   removeCard: (cardId) => {
-    const { currentDashboard, layouts, currentBreakpoint } = get()
+    const { currentDashboard, layouts } = get()
     if (!currentDashboard) return
 
     const updatedCards = currentDashboard.cards.filter((card) => card.id !== cardId)
-    const currentLayouts = layouts[currentBreakpoint] || []
-    const updatedLayouts = currentLayouts.filter((l) => l.i !== String(cardId))
+    const cardIdStr = String(cardId)
+
+    // Remove from all breakpoints
+    const updatedLayouts = {
+      lg: (layouts.lg || []).filter((l) => l.i !== cardIdStr),
+      md: (layouts.md || []).filter((l) => l.i !== cardIdStr),
+      sm: (layouts.sm || []).filter((l) => l.i !== cardIdStr),
+      xs: (layouts.xs || []).filter((l) => l.i !== cardIdStr),
+    }
 
     set({
       currentDashboard: { ...currentDashboard, cards: updatedCards },
-      layouts: { ...layouts, [currentBreakpoint]: updatedLayouts },
+      layouts: updatedLayouts,
       hasUnsavedChanges: true,
     })
   },

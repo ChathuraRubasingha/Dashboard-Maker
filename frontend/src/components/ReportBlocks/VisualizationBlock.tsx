@@ -108,25 +108,27 @@ export default function VisualizationBlock({
 
       {/* Settings panel */}
       {showSettings && isEditing && (
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 space-y-3">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={config.show_title}
-              onChange={(e) => onUpdate({ ...config, show_title: e.target.checked })}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">Show title</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={config.show_description}
-              onChange={(e) => onUpdate({ ...config, show_description: e.target.checked })}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">Show description</span>
-          </label>
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={config.show_title}
+                onChange={(e) => onUpdate({ ...config, show_title: e.target.checked })}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Show title</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={config.show_description}
+                onChange={(e) => onUpdate({ ...config, show_description: e.target.checked })}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Show description</span>
+            </label>
+          </div>
           <div>
             <label className="block text-sm text-gray-700 mb-1">Height</label>
             <select
@@ -140,6 +142,47 @@ export default function VisualizationBlock({
               <option value={500}>Extra Large (500px)</option>
             </select>
           </div>
+
+          {/* Axis Labels - only show for chart types that support axes */}
+          {visualization && !['pie', 'table'].includes(visualization.visualization_type) && (
+            <div className="border-t border-gray-200 pt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Axis Labels</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">X-Axis Label</label>
+                  <input
+                    type="text"
+                    value={config.x_axis_label_override || ''}
+                    onChange={(e) => onUpdate({ ...config, x_axis_label_override: e.target.value || undefined })}
+                    placeholder={visualization.customization?.x_axis_label || 'Enter label...'}
+                    className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Y-Axis Label</label>
+                  <input
+                    type="text"
+                    value={config.y_axis_label_override || ''}
+                    onChange={(e) => onUpdate({ ...config, y_axis_label_override: e.target.value || undefined })}
+                    placeholder={visualization.customization?.y_axis_label || 'Enter label...'}
+                    className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              {(config.x_axis_label_override || config.y_axis_label_override) && (
+                <button
+                  onClick={() => onUpdate({
+                    ...config,
+                    x_axis_label_override: undefined,
+                    y_axis_label_override: undefined
+                  })}
+                  className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Reset to defaults
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -169,8 +212,9 @@ export default function VisualizationBlock({
             colors={visualization.customization?.custom_colors}
             showLegend={visualization.customization?.show_legend ?? true}
             showGrid={visualization.customization?.show_grid ?? true}
-            xAxisLabel={visualization.customization?.x_axis_label ?? undefined}
-            yAxisLabel={visualization.customization?.y_axis_label ?? undefined}
+            xAxisLabel={config.x_axis_label_override || visualization.customization?.x_axis_label || undefined}
+            yAxisLabel={config.y_axis_label_override || visualization.customization?.y_axis_label || undefined}
+            customLabels={visualization.customization?.custom_labels || {}}
           />
         )}
       </div>

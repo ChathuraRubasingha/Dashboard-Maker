@@ -383,6 +383,9 @@ export interface VisualizationBlockConfig {
   show_title: boolean
   show_description: boolean
   height: number
+  // Chart label overrides
+  x_axis_label_override?: string
+  y_axis_label_override?: string
 }
 
 export interface TableBlockConfig {
@@ -390,6 +393,8 @@ export interface TableBlockConfig {
   show_title: boolean
   export_all_rows: boolean
   max_preview_rows: number
+  // Custom column labels (column_name -> custom_label)
+  custom_column_labels?: Record<string, string>
 }
 
 export interface DividerBlockConfig {

@@ -25,6 +25,7 @@ interface Props {
   showGrid?: boolean
   xAxisLabel?: string
   yAxisLabel?: string
+  customLabels?: Record<string, string> // For table column labels
 }
 
 const DEFAULT_COLORS = [
@@ -46,7 +47,12 @@ export default function ChartRenderer({
   showGrid = true,
   xAxisLabel,
   yAxisLabel,
+  customLabels = {},
 }: Props) {
+  // Helper to get column display name (custom label or original)
+  const getColumnLabel = (col: { name: string; display_name: string }) => {
+    return customLabels[col.name] || col.display_name || col.name
+  }
   // Transform data for charts
   const chartData = data.data.rows.map((row) => {
     const obj: Record<string, unknown> = {}
@@ -72,7 +78,7 @@ export default function ChartRenderer({
                   key={index}
                   className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  {col.display_name || col.name}
+                  {getColumnLabel(col)}
                 </th>
               ))}
             </tr>

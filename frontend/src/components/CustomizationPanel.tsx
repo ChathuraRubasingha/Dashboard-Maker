@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import type { VisualizationCustomization, VisualizationType } from '../types'
+import { Edit2 } from 'lucide-react'
+import type { VisualizationCustomization, VisualizationType, QueryResultColumn } from '../types'
 
 interface CustomizationPanelProps {
   customization: Partial<VisualizationCustomization>
   visualizationType: VisualizationType
   onChange: (customization: Partial<VisualizationCustomization>) => void
   disabled?: boolean
+  columns?: QueryResultColumn[] // For table column label editing
 }
 
 const COLOR_PALETTES: Record<string, string[]> = {
@@ -30,8 +32,14 @@ export default function CustomizationPanel({
   visualizationType,
   onChange,
   disabled = false,
+  columns = [],
 }: CustomizationPanelProps) {
-  const [activeTab, setActiveTab] = useState<'colors' | 'labels' | 'display'>('colors')
+  const isTableType = visualizationType === 'table'
+  const isChartType = !isTableType
+
+  const [activeTab, setActiveTab] = useState<'colors' | 'labels' | 'display' | 'table'>(
+    isTableType ? 'table' : 'colors'
+  )
 
   const updateCustomization = (updates: Partial<VisualizationCustomization>) => {
     onChange({ ...customization, ...updates })
@@ -50,12 +58,33 @@ export default function CustomizationPanel({
     })
   }
 
-  const isChartType = visualizationType !== 'table'
+  const handleColumnLabelChange = (columnName: string, newLabel: string) => {
+    const newLabels = { ...(customization.custom_labels || {}) }
+    if (newLabel.trim()) {
+      newLabels[columnName] = newLabel
+    } else {
+      delete newLabels[columnName]
+    }
+    updateCustomization({ custom_labels: newLabels })
+  }
 
   return (
     <div className={`bg-white rounded-lg border border-gray-200 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
       {/* Tab navigation */}
       <div className="flex border-b border-gray-200">
+        {/* Table tab - only for table type */}
+        {isTableType && (
+          <button
+            onClick={() => setActiveTab('table')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'table'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            Table
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('colors')}
           className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
@@ -92,6 +121,71 @@ export default function CustomizationPanel({
 
       {/* Tab content */}
       <div className="p-4">
+        {/* Table Tab - Column Labels */}
+        {activeTab === 'table' && isTableType && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Edit2 className="w-4 h-4 text-gray-500" />
+                <label className="text-sm font-medium text-gray-700">
+                  Column Labels
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                Customize how column headers are displayed in the table.
+              </p>
+
+              {columns.length > 0 ? (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-3 py-2 text-left text-gray-600 font-medium">Original Column</th>
+                        <th className="px-3 py-2 text-left text-gray-600 font-medium">Custom Label</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {columns.map((col) => (
+                        <tr key={col.name} className="border-t border-gray-100">
+                          <td className="px-3 py-2 text-gray-500 font-mono text-xs">
+                            {col.display_name}
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="text"
+                              value={customization.custom_labels?.[col.name] || ''}
+                              onChange={(e) => handleColumnLabelChange(col.name, e.target.value)}
+                              placeholder={col.display_name}
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              disabled={disabled}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                  <p className="text-sm">No columns available</p>
+                  <p className="text-xs mt-1">Run the query to see column options</p>
+                </div>
+              )}
+
+              {/* Clear all custom labels */}
+              {Object.keys(customization.custom_labels || {}).length > 0 && (
+                <button
+                  onClick={() => updateCustomization({ custom_labels: {} })}
+                  className="mt-3 text-sm text-gray-500 hover:text-gray-700"
+                  disabled={disabled}
+                >
+                  Reset all labels to default
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Colors Tab */}
         {activeTab === 'colors' && (
           <div className="space-y-4">

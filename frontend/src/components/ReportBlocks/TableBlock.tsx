@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { Settings, Download } from 'lucide-react'
+import { Settings, Download, Edit2 } from 'lucide-react'
 import { useState } from 'react'
+import clsx from 'clsx'
 import { visualizationService } from '../../services/visualizationService'
 import { metabaseService } from '../../services/metabaseService'
-import type { TableBlockConfig } from '../../types'
+import type { TableBlockConfig, QueryResultColumn } from '../../types'
 
 interface TableBlockProps {
   config: TableBlockConfig
@@ -13,6 +14,7 @@ interface TableBlockProps {
 
 export default function TableBlock({ config, isEditing, onUpdate }: TableBlockProps) {
   const [showSettings, setShowSettings] = useState(false)
+  const [showColumnLabelEditor, setShowColumnLabelEditor] = useState(false)
 
   // Fetch visualization
   const { data: visualization, isLoading: isLoadingViz } = useQuery({
@@ -28,9 +30,7 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
       if (!visualization) return null
 
       try {
-        // Handle MBQL query
         if (visualization.query_type === 'mbql' && visualization.mbql_query) {
-          // Check if mbql_query contains the full dataset query structure
           const storedQuery = visualization.mbql_query as unknown as {
             database?: number
             type?: string
@@ -38,14 +38,12 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
           }
 
           if (storedQuery.database && storedQuery.query) {
-            // Full dataset query object stored
             return await metabaseService.executeQuery({
               database: storedQuery.database,
               type: 'query',
               query: storedQuery.query as any,
             })
           } else {
-            // Just the MBQL query object
             return await metabaseService.executeQuery({
               database: visualization.database_id!,
               type: 'query',
@@ -54,7 +52,6 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
           }
         }
 
-        // Handle native query
         if (visualization.query_type === 'native' && visualization.native_query) {
           return await metabaseService.executeNativeQuery(
             visualization.database_id!,
@@ -72,18 +69,24 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
   })
 
   const isLoading = isLoadingViz || isLoadingQuery
+  const columns = queryResult?.data.cols || []
+  const rows = queryResult?.data.rows || []
 
-  // Get rows to display (limit for preview)
-  const displayRows = queryResult?.data.rows.slice(0, config.max_preview_rows) || []
-  const totalRows = queryResult?.data.rows.length || 0
-  const hasMoreRows = totalRows > config.max_preview_rows
+  // Get column display name (custom or original)
+  // Priority: report-level override > visualization customization > original display name
+  const getColumnLabel = (col: QueryResultColumn) => {
+    return (
+      config.custom_column_labels?.[col.name] ||
+      visualization?.customization?.custom_labels?.[col.name] ||
+      col.display_name
+    )
+  }
 
-  // Download as CSV
+  // Download as CSV with custom headers
   const handleDownloadCSV = () => {
     if (!queryResult) return
 
-    const headers = queryResult.data.cols.map((c) => c.display_name)
-    const rows = queryResult.data.rows
+    const headers = columns.map((c) => getColumnLabel(c))
 
     const csvContent = [
       headers.join(','),
@@ -91,7 +94,6 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
         row
           .map((cell) => {
             const cellStr = String(cell ?? '')
-            // Escape quotes and wrap in quotes if contains comma
             if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
               return `"${cellStr.replace(/"/g, '""')}"`
             }
@@ -127,9 +129,12 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
             {isEditing && (
               <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="p-1.5 hover:bg-gray-100 rounded"
+                className={clsx(
+                  'p-1.5 rounded transition-colors',
+                  showSettings ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-400'
+                )}
               >
-                <Settings className="w-4 h-4 text-gray-400" />
+                <Settings className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -138,7 +143,7 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
 
       {/* Settings panel */}
       {showSettings && isEditing && (
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 space-y-3">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 space-y-4">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -148,18 +153,53 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
             />
             <span className="text-sm text-gray-700">Show title</span>
           </label>
+
+          {/* Column Label Editor */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Preview rows</label>
-            <select
-              value={config.max_preview_rows}
-              onChange={(e) => onUpdate({ ...config, max_preview_rows: Number(e.target.value) })}
-              className="w-full px-3 py-1.5 border rounded-lg text-sm"
+            <button
+              onClick={() => setShowColumnLabelEditor(!showColumnLabelEditor)}
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
             >
-              <option value={25}>25 rows</option>
-              <option value={50}>50 rows</option>
-              <option value={100}>100 rows</option>
-              <option value={200}>200 rows</option>
-            </select>
+              <Edit2 className="w-4 h-4" />
+              {showColumnLabelEditor ? 'Hide' : 'Edit'} Column Labels
+            </button>
+
+            {showColumnLabelEditor && columns.length > 0 && (
+              <div className="mt-3 border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="px-3 py-2 text-left text-gray-600">Original</th>
+                      <th className="px-3 py-2 text-left text-gray-600">Custom Label</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {columns.map((col) => (
+                      <tr key={col.name} className="border-t border-gray-100">
+                        <td className="px-3 py-2 text-gray-500">{col.display_name}</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={config.custom_column_labels?.[col.name] || ''}
+                            onChange={(e) => {
+                              const newLabels = { ...config.custom_column_labels }
+                              if (e.target.value.trim()) {
+                                newLabels[col.name] = e.target.value
+                              } else {
+                                delete newLabels[col.name]
+                              }
+                              onUpdate({ ...config, custom_column_labels: newLabels })
+                            }}
+                            placeholder={col.display_name}
+                            className="w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -177,52 +217,40 @@ export default function TableBlock({ config, isEditing, onUpdate }: TableBlockPr
         ) : queryError ? (
           <div className="h-48 flex flex-col items-center justify-center text-red-500 px-4 text-center">
             <p className="font-medium">Failed to load data</p>
-            <p className="text-sm mt-1">{queryError instanceof Error ? queryError.message : 'Unknown error'}</p>
+            <p className="text-sm mt-1">
+              {queryError instanceof Error ? queryError.message : 'Unknown error'}
+            </p>
           </div>
-        ) : !queryResult || queryResult.data.rows.length === 0 ? (
+        ) : !queryResult || rows.length === 0 ? (
           <div className="h-48 flex items-center justify-center text-gray-500">
             No data available
           </div>
         ) : (
-          <>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  {queryResult.data.cols.map((col, i) => (
-                    <th
-                      key={i}
-                      className="px-4 py-2 text-left font-medium text-gray-700 whitespace-nowrap"
-                    >
-                      {col.display_name}
-                    </th>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {columns.map((col) => (
+                  <th
+                    key={col.name}
+                    className="px-4 py-2 text-left font-medium text-gray-700 whitespace-nowrap"
+                  >
+                    {getColumnLabel(col)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="border-b border-gray-100 hover:bg-gray-50">
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} className="px-4 py-2 text-gray-600 whitespace-nowrap">
+                      {formatCell(cell, columns[cellIndex]?.base_type)}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {displayRows.map((row, rowIndex) => (
-                  <tr
-                    key={rowIndex}
-                    className="border-b border-gray-100 hover:bg-gray-50"
-                  >
-                    {row.map((cell, cellIndex) => (
-                      <td
-                        key={cellIndex}
-                        className="px-4 py-2 text-gray-600 whitespace-nowrap"
-                      >
-                        {formatCell(cell, queryResult.data.cols[cellIndex]?.base_type)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {hasMoreRows && (
-              <div className="px-4 py-2 text-sm text-gray-500 bg-gray-50 border-t">
-                Showing {config.max_preview_rows} of {totalRows} rows.
-                Download CSV for complete data.
-              </div>
-            )}
-          </>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
