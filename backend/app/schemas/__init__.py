@@ -35,6 +35,20 @@ from app.schemas.report import (
     ExportRequest,
     ShareResponse,
 )
+from app.schemas.excel_report import (
+    PlaceholderType,
+    DataSourceType,
+    ExcelPlaceholder,
+    DataSourceMapping,
+    ExcelTemplateReportCreate,
+    ExcelTemplateReportUpdate,
+    ExcelTemplateReportResponse,
+    ExcelTemplateReportListResponse,
+    TemplateUploadResponse,
+    PlaceholderMappingRequest,
+    GenerateExcelResponse,
+    ShareResponse as ExcelShareResponse,
+)
 
 __all__ = [
     "DashboardCreate",
@@ -66,4 +80,16 @@ __all__ = [
     "BlockType",
     "ExportRequest",
     "ShareResponse",
+    "PlaceholderType",
+    "DataSourceType",
+    "ExcelPlaceholder",
+    "DataSourceMapping",
+    "ExcelTemplateReportCreate",
+    "ExcelTemplateReportUpdate",
+    "ExcelTemplateReportResponse",
+    "ExcelTemplateReportListResponse",
+    "TemplateUploadResponse",
+    "PlaceholderMappingRequest",
+    "GenerateExcelResponse",
+    "ExcelShareResponse",
 ]

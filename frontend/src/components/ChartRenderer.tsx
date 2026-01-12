@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   BarChart,
   Bar,
@@ -15,6 +16,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import type { QueryResult, VisualizationType } from '../types'
 
 interface Props {
@@ -38,6 +40,115 @@ const DEFAULT_COLORS = [
   '#98D9D9',
   '#7172AD',
 ]
+
+// Table with pagination component
+interface TableColumn {
+  name: string
+  display_name: string
+  base_type?: string
+}
+
+interface TableWithPaginationProps {
+  rows: unknown[][]
+  columns: TableColumn[]
+  getColumnLabel: (col: TableColumn) => string
+  rowsPerPage: number
+}
+
+function TableWithPagination({ rows, columns, getColumnLabel, rowsPerPage }: TableWithPaginationProps) {
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const totalRows = rows.length
+  const totalPages = Math.ceil(totalRows / rowsPerPage)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const endIndex = Math.min(startIndex + rowsPerPage, totalRows)
+  const currentRows = rows.slice(startIndex, endIndex)
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)))
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="overflow-auto flex-1">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50 sticky top-0">
+            <tr>
+              {columns.map((col, index) => (
+                <th
+                  key={index}
+                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {getColumnLabel(col)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {currentRows.map((row, rowIndex) => (
+              <tr key={startIndex + rowIndex} className="hover:bg-gray-50">
+                {row.map((cell, cellIndex) => (
+                  <td key={cellIndex} className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                    {formatCellValue(cell, columns[cellIndex]?.base_type)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {totalRows === 0 && (
+          <div className="text-center py-8 text-gray-500">No data available</div>
+        )}
+      </div>
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200">
+          <div className="text-sm text-gray-600">
+            Showing {startIndex + 1} - {endIndex} of {totalRows} rows
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => goToPage(1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="First page"
+            >
+              <ChevronsLeft className="w-4 h-4 text-gray-600" />
+            </button>
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4 text-gray-600" />
+            </button>
+            <span className="px-3 py-1 text-sm text-gray-700">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Next page"
+            >
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            </button>
+            <button
+              onClick={() => goToPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Last page"
+            >
+              <ChevronsRight className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function ChartRenderer({
   data,
@@ -66,39 +177,15 @@ export default function ChartRenderer({
   const xKey = columns[0]?.display_name || columns[0]?.name || 'x'
   const valueKeys = columns.slice(1).map((col) => col.display_name || col.name)
 
-  // Table view
+  // Table view with pagination
   if (type === 'table') {
     return (
-      <div className="overflow-auto h-full">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 sticky top-0">
-            <tr>
-              {columns.map((col, index) => (
-                <th
-                  key={index}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  {getColumnLabel(col)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {data.data.rows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-gray-50">
-                {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                    {formatCellValue(cell, columns[cellIndex]?.base_type)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.data.rows.length === 0 && (
-          <div className="text-center py-8 text-gray-500">No data available</div>
-        )}
-      </div>
+      <TableWithPagination
+        rows={data.data.rows}
+        columns={columns}
+        getColumnLabel={getColumnLabel}
+        rowsPerPage={25}
+      />
     )
   }
 

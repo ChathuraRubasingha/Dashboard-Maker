@@ -466,3 +466,70 @@ export interface ShareResponse {
   share_token: string
   is_public: boolean
 }
+
+// Excel Template Report types
+export type PlaceholderType = 'table' | 'value' | 'chart'
+
+export type DataSourceType = 'visualization' | 'saved_query' | 'inline_query'
+
+export interface ExcelPlaceholder {
+  id: string
+  placeholder: string        // e.g., "{{table:sales_data}}"
+  type: PlaceholderType
+  name: string               // e.g., "sales_data"
+  sheet_name: string
+  cell_reference: string     // e.g., "A5"
+}
+
+export interface DataSourceMapping {
+  type: DataSourceType
+  source_id?: number         // Visualization or saved query ID
+  query?: string             // Inline SQL query
+  database_id?: number       // Database ID for inline queries
+}
+
+export interface ExcelTemplateReport {
+  id: number
+  name: string
+  description: string | null
+  template_filename: string | null
+  placeholders: ExcelPlaceholder[]
+  mappings: Record<string, DataSourceMapping>
+  is_public: boolean
+  share_token: string | null
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ExcelTemplateReportListItem {
+  id: number
+  name: string
+  description: string | null
+  template_filename: string | null
+  placeholder_count: number
+  mapped_count: number
+  is_public: boolean
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ExcelTemplateReportCreate {
+  name: string
+  description?: string
+}
+
+export interface ExcelTemplateReportUpdate {
+  name?: string
+  description?: string
+  mappings?: Record<string, DataSourceMapping>
+  is_public?: boolean
+  is_archived?: boolean
+}
+
+export interface TemplateUploadResponse {
+  message: string
+  filename: string
+  placeholders: ExcelPlaceholder[]
+}
