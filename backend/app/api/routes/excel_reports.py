@@ -173,6 +173,14 @@ async def upload_template(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+    except Exception as e:
+        # Catch all other exceptions and provide useful error message
+        import traceback
+        print(f"Error uploading template: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process template: {str(e)}",
+        )
 
     return TemplateUploadResponse(
         message="Template uploaded successfully",

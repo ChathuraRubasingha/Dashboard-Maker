@@ -22,6 +22,7 @@ import ColumnPanel from './ColumnPanel'
 import FilterPanel from './FilterPanel'
 import ResultsModal from './ResultsModal'
 import JoinConfigModal from './JoinConfigModal'
+import AISQLChat from './AISQLChat'
 
 
 export default function QueryBuilder() {
@@ -447,6 +448,9 @@ export default function QueryBuilder() {
         mbqlPreview={mbqlPreview}
         databaseId={databaseId}
       />
+
+      {/* AI SQL Assistant */}
+      <AISQLChat databaseId={databaseId} />
     </DndContext>
   )
 }
