@@ -46,6 +46,11 @@ import {
   Download,
   Link,
   Search,
+  Image as ImageIcon,
+  LayoutGrid,
+  LayoutList,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { v4 as uuidv4 } from 'uuid'
@@ -59,12 +64,15 @@ import type {
   VisualizationBlockConfig,
   TableBlockConfig,
   DividerBlockConfig,
+  ImageBlockConfig,
   Visualization,
 } from '../types'
 import TextBlock from '../components/ReportBlocks/TextBlock'
 import VisualizationBlock from '../components/ReportBlocks/VisualizationBlock'
 import TableBlock from '../components/ReportBlocks/TableBlock'
 import DividerBlock from '../components/ReportBlocks/DividerBlock'
+import ImageBlock from '../components/ReportBlocks/ImageBlock'
+import CanvasBlock from '../components/ReportBlocks/CanvasBlock'
 
 export default function ReportBuilder() {
   const { id } = useParams<{ id: string }>()
@@ -87,7 +95,10 @@ export default function ReportBuilder() {
   const [pendingBlockType, setPendingBlockType] = useState<'visualization' | 'table' | null>(null)
   const [showAddBlockMenu, setShowAddBlockMenu] = useState<string | null>(null) // block id or 'top' or 'bottom'
   const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [isCanvasMode, setIsCanvasMode] = useState(false)
+  const [canvasScale, setCanvasScale] = useState(1)
   const reportContentRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
 
   // DnD sensors
   const sensors = useSensors(
@@ -175,11 +186,51 @@ export default function ReportBuilder() {
   }
 
   const addBlock = (type: BlockType, visualizationId?: number, insertAfter?: string) => {
+    // Calculate canvas position for new blocks in canvas mode
+    const getDefaultCanvasPosition = () => {
+      // Find a good position that doesn't overlap existing blocks
+      const existingPositions = blocks
+        .filter((b) => b.canvasPosition)
+        .map((b) => b.canvasPosition!)
+
+      // Start at a reasonable position
+      let x = 50
+      let y = 100
+
+      // Try to find an empty spot
+      if (existingPositions.length > 0) {
+        const maxY = Math.max(...existingPositions.map((p) => p.y + p.height))
+        y = maxY + 30
+      }
+
+      // Default sizes based on block type
+      const defaultSizes: Record<BlockType, { width: number; height: number }> = {
+        text: { width: 400, height: 150 },
+        visualization: { width: 500, height: 350 },
+        table: { width: 600, height: 300 },
+        divider: { width: 400, height: 40 },
+        image: { width: 400, height: 300 },
+      }
+
+      const size = defaultSizes[type] || { width: 400, height: 200 }
+
+      return {
+        x,
+        y,
+        width: size.width,
+        height: size.height,
+        rotation: 0,
+        zIndex: blocks.length + 1,
+      }
+    }
+
     const newBlock: ReportBlock = {
       id: uuidv4(),
       type,
       order: blocks.length,
       config: getDefaultConfig(type, visualizationId),
+      // Add canvas position when in canvas mode
+      ...(isCanvasMode && { canvasPosition: getDefaultCanvasPosition() }),
     }
 
     let newBlocks: ReportBlock[]
@@ -221,6 +272,15 @@ export default function ReportBuilder() {
         ...block,
         id: uuidv4(),
         order: block.order + 1,
+        // Offset the canvas position for duplicated blocks
+        ...(block.canvasPosition && {
+          canvasPosition: {
+            ...block.canvasPosition,
+            x: block.canvasPosition.x + 30,
+            y: block.canvasPosition.y + 30,
+            zIndex: blocks.length + 1,
+          },
+        }),
       }
       const index = blocks.findIndex((b) => b.id === blockId)
       const newBlocks = [...blocks.slice(0, index + 1), newBlock, ...blocks.slice(index + 1)]
@@ -463,110 +523,301 @@ export default function ReportBuilder() {
             <div className="w-px h-6 bg-gray-300 mx-2" />
 
             <button
+              onClick={() => addBlock('image')}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-200"
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span>Image</span>
+            </button>
+            <button
               onClick={() => addBlock('divider')}
               className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-white hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-gray-200"
             >
               <Minus className="w-4 h-4" />
               <span>Divider</span>
             </button>
-          </div>
-        )}
-      </div>
 
-      {/* Report Canvas - Paper-like */}
-      <div className="flex justify-center py-8 px-4">
-        <div
-          ref={reportContentRef}
-          className={clsx(
-            'w-full max-w-4xl bg-white rounded-2xl shadow-xl transition-all border border-gray-200',
-            isEditing ? 'min-h-[800px]' : 'min-h-[600px]'
-          )}
-        >
-          {/* Report Header */}
-          <div className="px-8 lg:px-12 pt-8 lg:pt-10 pb-6 border-b border-gray-100">
-            {isEditingTitle || isEditing ? (
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={reportName}
-                  onChange={(e) => {
-                    setReportName(e.target.value)
-                    setHasUnsavedChanges(true)
-                  }}
-                  className="text-2xl lg:text-3xl font-bold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-0 w-full hover:bg-gray-50 px-2 py-1 -mx-2 rounded-lg transition-colors"
-                  placeholder="Report Title"
-                />
-                <input
-                  type="text"
-                  value={reportDescription}
-                  onChange={(e) => {
-                    setReportDescription(e.target.value)
-                    setHasUnsavedChanges(true)
-                  }}
-                  className="text-gray-500 bg-transparent border-none focus:outline-none focus:ring-0 w-full hover:bg-gray-50 px-2 py-1 -mx-2 rounded-lg transition-colors"
-                  placeholder="Add a description..."
-                />
-              </div>
-            ) : (
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{reportName}</h1>
-                {reportDescription && (
-                  <p className="text-gray-500 mt-2">{reportDescription}</p>
-                )}
-              </div>
-            )}
-          </div>
+            <div className="w-px h-6 bg-gray-300 mx-2" />
 
-          <div className="p-8 lg:p-12">
-            {/* Blocks */}
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
+            {/* Canvas Mode Toggle */}
+            <button
+              onClick={() => setIsCanvasMode(!isCanvasMode)}
+              className={clsx(
+                'flex items-center gap-2 px-4 py-2 text-sm rounded-xl transition-all border',
+                isCanvasMode
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'text-gray-600 hover:bg-white hover:shadow-sm border-transparent hover:border-gray-200'
+              )}
+              title={isCanvasMode ? 'Switch to List View' : 'Switch to Canvas View'}
             >
-              <SortableContext
-                items={blocks.map((b) => b.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-3">
-                  {blocks.length === 0 ? (
-                    <EmptyState onAddBlock={() => setShowAddBlockMenu('bottom')} />
-                  ) : (
-                    blocks
-                      .sort((a, b) => a.order - b.order)
-                      .map((block) => (
-                        <SortableBlock
-                          key={block.id}
-                          block={block}
-                          isEditing={isEditing}
-                          isSelected={selectedBlockId === block.id}
-                          onSelect={() => setSelectedBlockId(block.id)}
-                          onUpdate={(config) => updateBlock(block.id, config)}
-                          onRemove={() => removeBlock(block.id)}
-                          onDuplicate={() => duplicateBlock(block.id)}
-                          onAddBelow={() => setShowAddBlockMenu(block.id)}
-                        />
-                      ))
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
+              {isCanvasMode ? (
+                <>
+                  <LayoutList className="w-4 h-4" />
+                  <span>List</span>
+                </>
+              ) : (
+                <>
+                  <LayoutGrid className="w-4 h-4" />
+                  <span>Canvas</span>
+                </>
+              )}
+            </button>
 
-            {/* Add block at bottom */}
-            {isEditing && blocks.length > 0 && (
-              <div className="mt-8 flex justify-center" data-pdf-hide="true">
+            {/* Zoom controls for canvas mode */}
+            {isCanvasMode && (
+              <div className="flex items-center gap-1 ml-2">
                 <button
-                  onClick={() => setShowAddBlockMenu('bottom')}
-                  className="flex items-center gap-2 px-5 py-3 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-all border-2 border-dashed border-gray-200 hover:border-purple-300"
+                  onClick={() => setCanvasScale(Math.max(0.5, canvasScale - 0.1))}
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Zoom Out"
                 >
-                  <Plus className="w-5 h-5" />
-                  Add block
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-gray-500 w-12 text-center">
+                  {Math.round(canvasScale * 100)}%
+                </span>
+                <button
+                  onClick={() => setCanvasScale(Math.min(2, canvasScale + 0.1))}
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-4 h-4" />
                 </button>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Report Canvas - Paper-like or Free-form Canvas */}
+      {isCanvasMode ? (
+        /* Canvas Mode - Free-form positioning */
+        <div className="flex-1 overflow-auto p-4 bg-gray-100">
+          <div
+            ref={(el) => {
+              canvasRef.current = el
+              // @ts-ignore - we need both refs for PDF export
+              if (el) reportContentRef.current = el
+            }}
+            className="relative bg-white rounded-2xl shadow-xl border border-gray-200 mx-auto"
+            style={{
+              width: `${1200}px`,
+              minHeight: `${800}px`,
+              transform: `scale(${canvasScale})`,
+              transformOrigin: 'top center',
+            }}
+            onClick={() => setSelectedBlockId(null)}
+          >
+            {/* Canvas Header */}
+            <div className="px-8 pt-8 pb-4 border-b border-gray-100">
+              {isEditing ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={reportName}
+                    onChange={(e) => {
+                      setReportName(e.target.value)
+                      setHasUnsavedChanges(true)
+                    }}
+                    className="text-2xl font-bold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-0 w-full hover:bg-gray-50 px-2 py-1 -mx-2 rounded-lg transition-colors"
+                    placeholder="Report Title"
+                  />
+                  <input
+                    type="text"
+                    value={reportDescription}
+                    onChange={(e) => {
+                      setReportDescription(e.target.value)
+                      setHasUnsavedChanges(true)
+                    }}
+                    className="text-gray-500 bg-transparent border-none focus:outline-none focus:ring-0 w-full hover:bg-gray-50 px-2 py-1 -mx-2 rounded-lg transition-colors"
+                    placeholder="Add a description..."
+                  />
+                </div>
+              ) : (
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{reportName}</h1>
+                  {reportDescription && (
+                    <p className="text-gray-500 mt-1">{reportDescription}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Canvas Content Area */}
+            <div
+              className="relative p-4"
+              style={{ minHeight: '600px' }}
+            >
+              {blocks.length === 0 ? (
+                <EmptyState onAddBlock={() => setShowAddBlockMenu('bottom')} />
+              ) : (
+                blocks.map((block) => (
+                  <CanvasBlock
+                    key={block.id}
+                    block={block}
+                    isSelected={selectedBlockId === block.id}
+                    isEditing={isEditing}
+                    canvasScale={canvasScale}
+                    onSelect={() => setSelectedBlockId(block.id)}
+                    onUpdate={(position) => {
+                      setBlocks(blocks.map((b) =>
+                        b.id === block.id ? { ...b, canvasPosition: position } : b
+                      ))
+                      setHasUnsavedChanges(true)
+                    }}
+                    onDelete={() => removeBlock(block.id)}
+                    onDuplicate={() => duplicateBlock(block.id)}
+                  >
+                    {block.type === 'text' && (
+                      <TextBlock
+                        config={block.config as TextBlockConfig}
+                        isEditing={isEditing}
+                        onUpdate={(config) => updateBlock(block.id, config)}
+                      />
+                    )}
+                    {block.type === 'visualization' && (
+                      <VisualizationBlock
+                        config={block.config as VisualizationBlockConfig}
+                        isEditing={isEditing}
+                        onUpdate={(config) => updateBlock(block.id, config)}
+                      />
+                    )}
+                    {block.type === 'table' && (
+                      <TableBlock
+                        config={block.config as TableBlockConfig}
+                        isEditing={isEditing}
+                        onUpdate={(config) => updateBlock(block.id, config)}
+                      />
+                    )}
+                    {block.type === 'divider' && (
+                      <DividerBlock
+                        config={block.config as DividerBlockConfig}
+                        isEditing={isEditing}
+                        onUpdate={(config) => updateBlock(block.id, config)}
+                      />
+                    )}
+                    {block.type === 'image' && (
+                      <ImageBlock
+                        config={block.config as ImageBlockConfig}
+                        isEditing={isEditing}
+                        onUpdate={(config) => updateBlock(block.id, config)}
+                      />
+                    )}
+                  </CanvasBlock>
+                ))
+              )}
+
+              {/* Add block button for canvas mode */}
+              {isEditing && (
+                <div className="absolute bottom-4 right-4" data-pdf-hide="true">
+                  <button
+                    onClick={() => setShowAddBlockMenu('bottom')}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-lg shadow-purple-500/25 transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Block
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* List Mode - Standard vertical layout */
+        <div className="flex justify-center py-8 px-4">
+          <div
+            ref={reportContentRef}
+            className={clsx(
+              'w-full max-w-4xl bg-white rounded-2xl shadow-xl transition-all border border-gray-200',
+              isEditing ? 'min-h-[800px]' : 'min-h-[600px]'
+            )}
+          >
+            {/* Report Header */}
+            <div className="px-8 lg:px-12 pt-8 lg:pt-10 pb-6 border-b border-gray-100">
+              {isEditingTitle || isEditing ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={reportName}
+                    onChange={(e) => {
+                      setReportName(e.target.value)
+                      setHasUnsavedChanges(true)
+                    }}
+                    className="text-2xl lg:text-3xl font-bold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-0 w-full hover:bg-gray-50 px-2 py-1 -mx-2 rounded-lg transition-colors"
+                    placeholder="Report Title"
+                  />
+                  <input
+                    type="text"
+                    value={reportDescription}
+                    onChange={(e) => {
+                      setReportDescription(e.target.value)
+                      setHasUnsavedChanges(true)
+                    }}
+                    className="text-gray-500 bg-transparent border-none focus:outline-none focus:ring-0 w-full hover:bg-gray-50 px-2 py-1 -mx-2 rounded-lg transition-colors"
+                    placeholder="Add a description..."
+                  />
+                </div>
+              ) : (
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{reportName}</h1>
+                  {reportDescription && (
+                    <p className="text-gray-500 mt-2">{reportDescription}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-8 lg:p-12">
+              {/* Blocks */}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={blocks.map((b) => b.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {blocks.length === 0 ? (
+                      <EmptyState onAddBlock={() => setShowAddBlockMenu('bottom')} />
+                    ) : (
+                      blocks
+                        .sort((a, b) => a.order - b.order)
+                        .map((block) => (
+                          <SortableBlock
+                            key={block.id}
+                            block={block}
+                            isEditing={isEditing}
+                            isSelected={selectedBlockId === block.id}
+                            onSelect={() => setSelectedBlockId(block.id)}
+                            onUpdate={(config) => updateBlock(block.id, config)}
+                            onRemove={() => removeBlock(block.id)}
+                            onDuplicate={() => duplicateBlock(block.id)}
+                            onAddBelow={() => setShowAddBlockMenu(block.id)}
+                          />
+                        ))
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
+
+              {/* Add block at bottom */}
+              {isEditing && blocks.length > 0 && (
+                <div className="mt-8 flex justify-center" data-pdf-hide="true">
+                  <button
+                    onClick={() => setShowAddBlockMenu('bottom')}
+                    className="flex items-center gap-2 px-5 py-3 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-all border-2 border-dashed border-gray-200 hover:border-purple-300"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Add block
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Block Menu */}
       {showAddBlockMenu && (
@@ -603,6 +854,7 @@ export default function ReportBuilder() {
           }}
           onAddChart={() => handleAddVisualizationBlock('visualization')}
           onAddTable={() => handleAddVisualizationBlock('table')}
+          onAddImage={() => addBlock('image', undefined, showAddBlockMenu)}
           onAddDivider={() => addBlock('divider', undefined, showAddBlockMenu)}
           onClose={() => setShowAddBlockMenu(null)}
         />
@@ -806,6 +1058,13 @@ function SortableBlock({
             onUpdate={onUpdate}
           />
         )}
+        {block.type === 'image' && (
+          <ImageBlock
+            config={block.config as ImageBlockConfig}
+            isEditing={isEditing}
+            onUpdate={onUpdate}
+          />
+        )}
       </div>
     </div>
   )
@@ -816,6 +1075,7 @@ function AddBlockMenu({
   onAddHeading,
   onAddChart,
   onAddTable,
+  onAddImage,
   onAddDivider,
   onClose,
 }: {
@@ -823,6 +1083,7 @@ function AddBlockMenu({
   onAddHeading: () => void
   onAddChart: () => void
   onAddTable: () => void
+  onAddImage: () => void
   onAddDivider: () => void
   onClose: () => void
 }) {
@@ -887,6 +1148,18 @@ function AddBlockMenu({
               </div>
             </button>
             <button
+              onClick={onAddImage}
+              className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
+            >
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <ImageIcon className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-medium text-gray-900">Image</div>
+                <div className="text-xs text-gray-500">Upload image</div>
+              </div>
+            </button>
+            <button
               onClick={onAddDivider}
               className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all text-left col-span-2 group"
             >
@@ -940,6 +1213,17 @@ function getDefaultConfig(
         color: '#e5e7eb',
         margin: 20,
       } as DividerBlockConfig
+    case 'image':
+      return {
+        src: '',
+        alt: '',
+        objectFit: 'contain',
+        opacity: 1,
+        borderRadius: 0,
+        borderWidth: 0,
+        borderColor: '#e5e7eb',
+        shadow: 'none',
+      } as ImageBlockConfig
     default:
       throw new Error(`Unknown block type: ${type}`)
   }

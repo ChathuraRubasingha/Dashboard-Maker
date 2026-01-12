@@ -362,15 +362,166 @@ export interface GridLayouts {
   xs: GridLayout[]
 }
 
-// Report types
-export type BlockType = 'text' | 'visualization' | 'table' | 'divider'
+// Report types - ReportBro-like designer
+export type ReportElementType = 'text' | 'image' | 'line' | 'frame' | 'table' | 'chart'
+
+// Section types for report structure
+export type ReportSectionType = 'header' | 'content' | 'footer'
+
+// Element position and size (absolute positioning like ReportBro)
+export interface ElementPosition {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+// Base element style properties
+export interface ElementStyle {
+  backgroundColor?: string
+  borderWidth?: number
+  borderColor?: string
+  borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none'
+  borderRadius?: number
+  opacity?: number
+}
+
+// Text element properties
+export interface TextElementStyle extends ElementStyle {
+  fontSize: number
+  fontFamily: string
+  fontWeight: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900'
+  fontStyle: 'normal' | 'italic'
+  textDecoration: 'none' | 'underline' | 'line-through'
+  textAlign: 'left' | 'center' | 'right' | 'justify'
+  verticalAlign: 'top' | 'middle' | 'bottom'
+  color: string
+  lineHeight: number
+  letterSpacing: number
+  padding: number
+}
+
+export interface TextElementConfig {
+  content: string
+  style: TextElementStyle
+}
+
+// Image element properties
+export interface ImageElementConfig {
+  src: string
+  alt: string
+  objectFit: 'contain' | 'cover' | 'fill' | 'none'
+  style: ElementStyle
+}
+
+// Line element properties
+export interface LineElementConfig {
+  color: string
+  thickness: number
+  style: 'solid' | 'dashed' | 'dotted'
+}
+
+// Frame/Section element (container for grouping)
+export interface FrameElementConfig {
+  style: ElementStyle
+  children: ReportElement[]
+}
+
+// Table element properties
+export interface TableElementConfig {
+  visualization_id?: number
+  columns: TableColumn[]
+  showHeader: boolean
+  headerStyle: TextElementStyle
+  rowStyle: TextElementStyle
+  alternateRowColor?: string
+  borderColor: string
+  borderWidth: number
+}
+
+export interface TableColumn {
+  id: string
+  header: string
+  width: number
+  align: 'left' | 'center' | 'right'
+}
+
+// Chart element properties
+export interface ChartElementConfig {
+  visualization_id: number
+  showTitle: boolean
+  showLegend: boolean
+}
+
+// Union type for all element configs
+export type ReportElementConfig =
+  | TextElementConfig
+  | ImageElementConfig
+  | LineElementConfig
+  | FrameElementConfig
+  | TableElementConfig
+  | ChartElementConfig
+
+// Report element (the base unit on the canvas)
+export interface ReportElement {
+  id: string
+  type: ReportElementType
+  name: string
+  section: ReportSectionType
+  position: ElementPosition
+  locked: boolean
+  visible: boolean
+  config: ReportElementConfig
+}
+
+// Page settings for the report
+export interface PageSettings {
+  pageSize: 'A4' | 'Letter' | 'Legal' | 'custom'
+  orientation: 'portrait' | 'landscape'
+  width: number  // in mm
+  height: number // in mm
+  margins: {
+    top: number
+    right: number
+    bottom: number
+    left: number
+  }
+  headerHeight: number
+  footerHeight: number
+}
+
+// Default page sizes in mm
+export const PAGE_SIZES = {
+  A4: { width: 210, height: 297 },
+  Letter: { width: 216, height: 279 },
+  Legal: { width: 216, height: 356 },
+}
+
+// Legacy types for backward compatibility
+export type BlockType = 'text' | 'visualization' | 'table' | 'divider' | 'image'
+
+export interface CanvasPosition {
+  x: number
+  y: number
+  width: number
+  height: number
+  rotation?: number
+  zIndex?: number
+}
 
 export interface TextBlockStyle {
   fontSize: number
-  fontWeight: 'normal' | 'bold'
+  fontWeight: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900'
   fontStyle?: 'normal' | 'italic'
-  textAlign: 'left' | 'center' | 'right'
+  textAlign: 'left' | 'center' | 'right' | 'justify'
   color: string
+  fontFamily?: string
+  lineHeight?: number
+  letterSpacing?: number
+  textDecoration?: 'none' | 'underline' | 'line-through'
+  backgroundColor?: string
+  padding?: number
+  borderRadius?: number
 }
 
 export interface TextBlockConfig {
@@ -378,12 +529,22 @@ export interface TextBlockConfig {
   style: TextBlockStyle
 }
 
+export interface ImageBlockConfig {
+  src: string
+  alt: string
+  objectFit: 'contain' | 'cover' | 'fill' | 'none'
+  opacity: number
+  borderRadius: number
+  borderWidth: number
+  borderColor: string
+  shadow: 'none' | 'sm' | 'md' | 'lg' | 'xl'
+}
+
 export interface VisualizationBlockConfig {
   visualization_id: number
   show_title: boolean
   show_description: boolean
   height: number
-  // Chart label overrides
   x_axis_label_override?: string
   y_axis_label_override?: string
 }
@@ -393,7 +554,6 @@ export interface TableBlockConfig {
   show_title: boolean
   export_all_rows: boolean
   max_preview_rows: number
-  // Custom column labels (column_name -> custom_label)
   custom_column_labels?: Record<string, string>
 }
 
@@ -407,24 +567,17 @@ export interface ReportBlock {
   id: string
   type: BlockType
   order: number
-  config: TextBlockConfig | VisualizationBlockConfig | TableBlockConfig | DividerBlockConfig
-}
-
-export interface PageSettings {
-  page_size: 'A4' | 'Letter' | 'Legal'
-  orientation: 'portrait' | 'landscape'
-  margins: {
-    top: number
-    right: number
-    bottom: number
-    left: number
-  }
+  config: TextBlockConfig | VisualizationBlockConfig | TableBlockConfig | DividerBlockConfig | ImageBlockConfig
+  canvasPosition?: CanvasPosition
 }
 
 export interface Report {
   id: number
   name: string
   description: string | null
+  // New ReportBro-style elements
+  elements?: ReportElement[]
+  // Legacy blocks for backward compatibility
   blocks: ReportBlock[]
   settings: PageSettings
   is_public: boolean
