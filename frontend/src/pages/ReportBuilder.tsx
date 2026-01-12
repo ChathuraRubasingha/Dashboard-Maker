@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import html2canvas from 'html2canvas'
+import { domToPng } from 'modern-screenshot'
 import { jsPDF } from 'jspdf'
 import {
   DndContext,
@@ -1085,82 +1085,42 @@ function ShareModal({
 
     setIsExportingPDF(true)
     try {
-      // Close modal temporarily to capture content
+      // Hide modal during capture
       const modalBackdrop = document.querySelector('.fixed.inset-0.z-50') as HTMLElement
       if (modalBackdrop) {
         modalBackdrop.style.display = 'none'
       }
 
-      // Wait for any animations to complete
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      // Clone the element to avoid modifying the original
-      const clone = contentRef.current.cloneNode(true) as HTMLElement
-      clone.style.position = 'absolute'
-      clone.style.left = '-9999px'
-      clone.style.top = '0'
-      clone.style.width = contentRef.current.offsetWidth + 'px'
-      clone.style.backgroundColor = '#ffffff'
-      document.body.appendChild(clone)
-
-      // Convert oklch colors to rgb for html2canvas compatibility
-      const convertOklchColors = (element: HTMLElement) => {
-        const computedStyle = window.getComputedStyle(element)
-        const propsToCheck = ['color', 'backgroundColor', 'borderColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor']
-
-        propsToCheck.forEach(prop => {
-          const value = computedStyle.getPropertyValue(prop.replace(/([A-Z])/g, '-$1').toLowerCase())
-          if (value && value.includes('oklch')) {
-            // Create a temporary element to convert the color
-            const temp = document.createElement('div')
-            temp.style.color = value
-            document.body.appendChild(temp)
-            const rgb = window.getComputedStyle(temp).color
-            document.body.removeChild(temp)
-
-            if (prop === 'backgroundColor') {
-              element.style.backgroundColor = rgb
-            } else if (prop === 'color') {
-              element.style.color = rgb
-            } else if (prop.includes('border')) {
-              element.style.setProperty(prop.replace(/([A-Z])/g, '-$1').toLowerCase(), rgb)
-            }
-          }
-        })
-
-        // Process children
-        Array.from(element.children).forEach(child => {
-          if (child instanceof HTMLElement) {
-            convertOklchColors(child)
-          }
-        })
-      }
-
-      convertOklchColors(clone)
-
-      // Capture the cloned content
-      const canvas = await html2canvas(clone, {
+      // Use modern-screenshot which properly handles oklch colors
+      const dataUrl = await domToPng(contentRef.current, {
         scale: 2,
-        useCORS: true,
-        allowTaint: true,
         backgroundColor: '#ffffff',
-        logging: false,
+        style: {
+          // Ensure white background
+          backgroundColor: '#ffffff',
+        },
       })
-
-      // Remove the clone
-      document.body.removeChild(clone)
 
       // Show modal again
       if (modalBackdrop) {
         modalBackdrop.style.display = 'flex'
       }
 
-      // Calculate PDF dimensions (A4)
+      // Create image to get dimensions
+      const img = new Image()
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = reject
+        img.src = dataUrl
+      })
+
+      // Generate PDF
       const imgWidth = 210 // A4 width in mm
       const pageHeight = 297 // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      const imgHeight = (img.height * imgWidth) / img.width
 
-      // Create PDF
       const pdf = new jsPDF('p', 'mm', 'a4')
 
       // Add title
@@ -1173,33 +1133,30 @@ function ShareModal({
       pdf.setFont('helvetica', 'normal')
       pdf.setTextColor(128, 128, 128)
       pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22)
-
-      // Reset text color
       pdf.setTextColor(0, 0, 0)
 
-      // Add the canvas image
-      const imgData = canvas.toDataURL('image/png')
+      // Add image
       let heightLeft = imgHeight
-      let position = 30 // Start after title
+      let position = 30
 
-      // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight - position
 
-      // Add additional pages if needed
       while (heightLeft > 0) {
         position = heightLeft - imgHeight
         pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight)
         heightLeft -= pageHeight
       }
 
-      // Save the PDF
+      // Save
       const fileName = `${reportName.replace(/[^a-z0-9]/gi, '_')}.pdf`
       pdf.save(fileName)
     } catch (error) {
       console.error('Failed to export PDF:', error)
-      // Show modal again in case of error
+      alert('Failed to export PDF: ' + (error instanceof Error ? error.message : 'Unknown error'))
+
+      // Restore modal on error
       const modalBackdrop = document.querySelector('.fixed.inset-0.z-50') as HTMLElement
       if (modalBackdrop) {
         modalBackdrop.style.display = 'flex'
