@@ -1123,21 +1123,25 @@ function ShareModal({
 
       const pdf = new jsPDF('p', 'mm', 'a4')
 
-      // Add title
-      pdf.setFontSize(16)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text(reportName, 14, 15)
-
-      // Add date
-      pdf.setFontSize(10)
+      // Add small header with report name and timestamp
+      pdf.setFontSize(9)
       pdf.setFont('helvetica', 'normal')
-      pdf.setTextColor(128, 128, 128)
-      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22)
+      pdf.setTextColor(120, 120, 120)
+      const now = new Date()
+      const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`
+      pdf.text(`${reportName}  |  Generated: ${timestamp}`, 14, 10)
+
+      // Add a subtle separator line
+      pdf.setDrawColor(220, 220, 220)
+      pdf.setLineWidth(0.3)
+      pdf.line(14, 13, 196, 13)
+
+      // Reset text color for content
       pdf.setTextColor(0, 0, 0)
 
-      // Add image
+      // Add image (starting closer to top since header is smaller)
       let heightLeft = imgHeight
-      let position = 30
+      let position = 18
 
       pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight - position
@@ -1252,24 +1256,14 @@ function ShareModal({
           {/* Export Options */}
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">Export as</label>
-            <div className="flex gap-3">
-              <button
-                onClick={handlePDFExport}
-                disabled={isExportingPDF}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium disabled:opacity-50"
-              >
-                <Download className="w-5 h-5 text-red-500" />
-                {isExportingPDF ? 'Exporting...' : 'PDF'}
-              </button>
-              <button
-                onClick={handleExcelExport}
-                disabled={isExportingExcel}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium disabled:opacity-50"
-              >
-                <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-                {isExportingExcel ? 'Exporting...' : 'Excel'}
-              </button>
-            </div>
+            <button
+              onClick={handlePDFExport}
+              disabled={isExportingPDF}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium disabled:opacity-50"
+            >
+              <Download className="w-5 h-5 text-red-500" />
+              {isExportingPDF ? 'Exporting...' : 'Download PDF'}
+            </button>
           </div>
         </div>
 
