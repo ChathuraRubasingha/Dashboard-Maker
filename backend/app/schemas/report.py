@@ -74,6 +74,7 @@ class ReportCreate(BaseModel):
     """Schema for creating a new report."""
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
+    elements: List[Dict[str, Any]] = Field(default_factory=list)
     blocks: List[ReportBlock] = Field(default_factory=list)
     settings: Optional[PageSettings] = None
 
@@ -82,6 +83,7 @@ class ReportUpdate(BaseModel):
     """Schema for updating a report."""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
+    elements: Optional[List[Dict[str, Any]]] = None
     blocks: Optional[List[ReportBlock]] = None
     settings: Optional[PageSettings] = None
     is_public: Optional[bool] = None
@@ -93,6 +95,7 @@ class ReportResponse(BaseModel):
     id: int
     name: str
     description: Optional[str]
+    elements: List[Dict[str, Any]]
     blocks: List[Dict[str, Any]]
     settings: Dict[str, Any]
     is_public: bool

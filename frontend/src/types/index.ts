@@ -601,6 +601,7 @@ export interface ReportListItem {
 export interface ReportCreate {
   name: string
   description?: string
+  elements?: ReportElement[]
   blocks?: ReportBlock[]
   settings?: PageSettings
 }
@@ -608,6 +609,7 @@ export interface ReportCreate {
 export interface ReportUpdate {
   name?: string
   description?: string
+  elements?: ReportElement[]
   blocks?: ReportBlock[]
   settings?: PageSettings
   is_public?: boolean

@@ -17,10 +17,14 @@ class Report(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
 
-    # Report content - array of blocks
+    # Report content - array of blocks (legacy)
     # Each block: { id, type, order, config }
     # Types: 'text', 'visualization', 'table', 'divider'
     blocks = Column(JSON, default=[])
+
+    # New ReportBro-style elements (new designer)
+    # Each element: { id, type, name, section, position, locked, visible, config }
+    elements = Column(JSON, default=[])
 
     # Page settings
     settings = Column(JSON, default={

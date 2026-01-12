@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Share2,
   Eye,
+  EyeOff,
   Edit3,
   Type,
   Image as ImageIcon,
@@ -21,7 +22,7 @@ import {
   Lock,
   Unlock,
   ChevronDown,
-  ChevronRight,
+  ChevronUp,
   FileText,
   Download,
   Link,
@@ -30,7 +31,6 @@ import {
   MessageCircle,
   ZoomIn,
   ZoomOut,
-  GripVertical,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -38,6 +38,16 @@ import {
   Italic,
   Underline,
   RotateCcw,
+  Grid3X3,
+  Maximize,
+  Search,
+  Layers,
+  PieChart,
+  LineChart,
+  TrendingUp,
+  Move,
+  Palette,
+  Settings2,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { reportService } from '../services/reportService'
@@ -187,10 +197,17 @@ export default function ReportDesigner() {
   const [zoom, setZoom] = useState(1)
   const [showShareModal, setShowShareModal] = useState(false)
   const [activeSection, setActiveSection] = useState<ReportSectionType>('content')
-  const [expandedPanels, setExpandedPanels] = useState({ elements: true, layers: true, properties: true, charts: false, tables: false })
+
+  // New UI State
+  const [activeLeftTab, setActiveLeftTab] = useState<'elements' | 'assets'>('elements')
+  const [showGrid, setShowGrid] = useState(false)
+  const [snapToGrid, setSnapToGrid] = useState(false)
+  const [gridSize] = useState(20) // pixels
+  const [assetSearch, setAssetSearch] = useState('')
+
+  // Drag state
   const [draggedElementType, setDraggedElementType] = useState<ReportElementType | null>(null)
   const [draggedVisualizationId, setDraggedVisualizationId] = useState<number | null>(null)
-  const [visualizationSearch, setVisualizationSearch] = useState('')
   const [pendingImageElementId, setPendingImageElementId] = useState<string | null>(null)
   const [pendingDropPosition, setPendingDropPosition] = useState<{ x: number; y: number } | null>(null)
 
@@ -462,12 +479,9 @@ export default function ReportDesigner() {
 
     // If dropping a generic element type
     if (draggedElementType) {
-      if (draggedElementType === 'chart') {
-        // Expand charts panel instead of opening modal
-        setExpandedPanels({ ...expandedPanels, charts: true, tables: false })
-      } else if (draggedElementType === 'table') {
-        // Expand tables panel instead of opening modal
-        setExpandedPanels({ ...expandedPanels, tables: true, charts: false })
+      if (draggedElementType === 'chart' || draggedElementType === 'table') {
+        // Switch to assets tab to select visualization
+        setActiveLeftTab('assets')
       } else if (draggedElementType === 'image') {
         // Store drop position and trigger file picker
         setPendingDropPosition({ x, y })
@@ -481,15 +495,7 @@ export default function ReportDesigner() {
 
   // Filter visualizations based on search
   const filteredVisualizations = visualizations.filter((v) =>
-    v.name.toLowerCase().includes(visualizationSearch.toLowerCase())
-  )
-
-  // Separate charts and tables
-  const chartVisualizations = filteredVisualizations.filter(
-    (v) => v.visualization_type !== 'table'
-  )
-  const tableVisualizations = filteredVisualizations.filter(
-    (v) => v.visualization_type === 'table'
+    v.name.toLowerCase().includes(assetSearch.toLowerCase())
   )
 
   // Keyboard shortcuts
@@ -524,7 +530,7 @@ export default function ReportDesigner() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 -m-4 lg:-m-6">
+    <div className="flex flex-col h-screen bg-gray-100 -m-4 lg:-m-6 overflow-hidden">
       {/* Top Toolbar */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm z-20">
         <div className="flex items-center justify-between h-14 px-4">
@@ -552,33 +558,83 @@ export default function ReportDesigner() {
               />
             </div>
             {hasUnsavedChanges && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+              <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded self-center ml-1">
                 Unsaved
               </span>
             )}
           </div>
 
-          {/* Center section - Zoom controls */}
-          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-2 py-1">
+          {/* Center section - Zoom controls & Grid toggle */}
+          <div className="flex items-center gap-3">
+            {/* Zoom controls */}
+            <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-2 py-1">
+              <button
+                onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
+                className="p-1 hover:bg-gray-200 rounded"
+                title="Zoom out"
+              >
+                <ZoomOut className="w-4 h-4 text-gray-600" />
+              </button>
+              <span className="text-sm text-gray-600 w-12 text-center">{Math.round(zoom * 100)}%</span>
+              <button
+                onClick={() => setZoom(Math.min(2, zoom + 0.1))}
+                className="p-1 hover:bg-gray-200 rounded"
+                title="Zoom in"
+              >
+                <ZoomIn className="w-4 h-4 text-gray-600" />
+              </button>
+              <button
+                onClick={() => setZoom(1)}
+                className="p-1 hover:bg-gray-200 rounded ml-1"
+                title="Reset zoom"
+              >
+                <RotateCcw className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Grid toggle */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1">
+              <button
+                onClick={() => setShowGrid(!showGrid)}
+                className={clsx(
+                  'p-1.5 rounded transition-colors',
+                  showGrid ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-200 text-gray-500'
+                )}
+                title={showGrid ? 'Hide grid' : 'Show grid'}
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setSnapToGrid(!snapToGrid)}
+                className={clsx(
+                  'p-1.5 rounded transition-colors text-xs font-medium',
+                  snapToGrid ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-200 text-gray-500'
+                )}
+                title={snapToGrid ? 'Disable snap to grid' : 'Enable snap to grid'}
+              >
+                Snap
+              </button>
+            </div>
+
+            {/* Fit to view */}
             <button
-              onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
-              className="p-1 hover:bg-gray-200 rounded"
+              onClick={() => {
+                // Calculate zoom to fit page in view
+                const containerWidth = window.innerWidth - 72 - 288 - 288 - 64 // minus panels and padding
+                const containerHeight = window.innerHeight - 56 - 64 // minus toolbar and padding
+                const pageWidthMm = pageSettings.width * MM_TO_PX
+                const pageHeightMm = pageSettings.height * MM_TO_PX
+                const fitZoom = Math.min(
+                  containerWidth / pageWidthMm,
+                  containerHeight / pageHeightMm,
+                  1
+                )
+                setZoom(Math.max(0.5, Math.min(fitZoom, 1)))
+              }}
+              className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Fit to view"
             >
-              <ZoomOut className="w-4 h-4 text-gray-600" />
-            </button>
-            <span className="text-sm text-gray-600 w-12 text-center">{Math.round(zoom * 100)}%</span>
-            <button
-              onClick={() => setZoom(Math.min(2, zoom + 0.1))}
-              className="p-1 hover:bg-gray-200 rounded"
-            >
-              <ZoomIn className="w-4 h-4 text-gray-600" />
-            </button>
-            <button
-              onClick={() => setZoom(1)}
-              className="p-1 hover:bg-gray-200 rounded ml-1"
-              title="Reset zoom"
-            >
-              <RotateCcw className="w-4 h-4 text-gray-600" />
+              <Maximize className="w-4 h-4 text-gray-600" />
             </button>
           </div>
 
@@ -629,245 +685,224 @@ export default function ReportDesigner() {
       </div>
 
       {/* Main content area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel - Elements Palette */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Left Panel - Tabbed Interface */}
         {isEditing && (
-          <div className="w-64 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-            {/* Elements Panel */}
-            <div className="border-b border-gray-200">
+          <div className="w-72 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+            {/* Tab Headers */}
+            <div className="flex border-b border-gray-200">
               <button
-                onClick={() => setExpandedPanels({ ...expandedPanels, elements: !expandedPanels.elements })}
-                className="flex items-center justify-between w-full px-4 py-3 hover:bg-gray-50"
+                onClick={() => setActiveLeftTab('elements')}
+                className={clsx(
+                  'flex-1 px-4 py-3 text-sm font-medium transition-colors relative',
+                  activeLeftTab === 'elements'
+                    ? 'text-purple-700 bg-purple-50'
+                    : 'text-gray-600 hover:bg-gray-50'
+                )}
               >
-                <span className="text-sm font-medium text-gray-700">Elements</span>
-                {expandedPanels.elements ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                <div className="flex items-center justify-center gap-2">
+                  <Square className="w-4 h-4" />
+                  Elements
+                </div>
+                {activeLeftTab === 'elements' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
                 )}
               </button>
-              {expandedPanels.elements && (
-                <div className="px-3 pb-3 grid grid-cols-3 gap-2">
-                  <ElementPaletteItem
-                    icon={<Type className="w-5 h-5" />}
-                    label="Text"
-                    onDragStart={() => handlePaletteDragStart('text')}
-                    onClick={() => addElement('text')}
-                  />
-                  <ElementPaletteItem
-                    icon={<ImageIcon className="w-5 h-5" />}
-                    label="Image"
-                    onDragStart={() => handlePaletteDragStart('image')}
-                    onClick={() => triggerImageUpload()}
-                  />
-                  <ElementPaletteItem
-                    icon={<Minus className="w-5 h-5" />}
-                    label="Line"
-                    onDragStart={() => handlePaletteDragStart('line')}
-                    onClick={() => addElement('line')}
-                  />
-                  <ElementPaletteItem
-                    icon={<Square className="w-5 h-5" />}
-                    label="Frame"
-                    onDragStart={() => handlePaletteDragStart('frame')}
-                    onClick={() => addElement('frame')}
-                  />
-                  <ElementPaletteItem
-                    icon={<Table className="w-5 h-5" />}
-                    label="Table"
-                    onDragStart={() => handlePaletteDragStart('table')}
-                    onClick={() => setExpandedPanels({ ...expandedPanels, tables: !expandedPanels.tables, charts: false })}
-                    isActive={expandedPanels.tables}
-                  />
-                  <ElementPaletteItem
-                    icon={<BarChart3 className="w-5 h-5" />}
-                    label="Chart"
-                    onDragStart={() => handlePaletteDragStart('chart')}
-                    onClick={() => setExpandedPanels({ ...expandedPanels, charts: !expandedPanels.charts, tables: false })}
-                    isActive={expandedPanels.charts}
-                  />
+              <button
+                onClick={() => setActiveLeftTab('assets')}
+                className={clsx(
+                  'flex-1 px-4 py-3 text-sm font-medium transition-colors relative',
+                  activeLeftTab === 'assets'
+                    ? 'text-purple-700 bg-purple-50'
+                    : 'text-gray-600 hover:bg-gray-50'
+                )}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Assets
                 </div>
-              )}
+                {activeLeftTab === 'assets' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
+                )}
+              </button>
             </div>
 
-            {/* Charts Panel - Expandable */}
-            {expandedPanels.charts && (
-              <div className="border-b border-gray-200">
-                <div className="px-3 py-2 bg-purple-50 border-b border-purple-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-purple-700">Charts</span>
-                    <button
-                      onClick={() => setExpandedPanels({ ...expandedPanels, charts: false })}
-                      className="p-1 hover:bg-purple-100 rounded"
-                    >
-                      <X className="w-3.5 h-3.5 text-purple-500" />
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search charts..."
-                    value={visualizationSearch}
-                    onChange={(e) => setVisualizationSearch(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white"
-                  />
-                </div>
-                <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                  {chartVisualizations.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-4">
-                      {visualizationSearch ? 'No charts found' : 'No charts available'}
-                    </p>
-                  ) : (
-                    chartVisualizations.map((viz) => (
-                      <VisualizationDragItem
-                        key={viz.id}
-                        visualization={viz}
-                        type="chart"
-                        onDragStart={() => handleVisualizationDragStart('chart', viz.id)}
-                        onClick={() => addElement('chart', undefined, viz.id)}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Tables Panel - Expandable */}
-            {expandedPanels.tables && (
-              <div className="border-b border-gray-200">
-                <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-emerald-700">Tables</span>
-                    <button
-                      onClick={() => setExpandedPanels({ ...expandedPanels, tables: false })}
-                      className="p-1 hover:bg-emerald-100 rounded"
-                    >
-                      <X className="w-3.5 h-3.5 text-emerald-500" />
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search tables..."
-                    value={visualizationSearch}
-                    onChange={(e) => setVisualizationSearch(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-emerald-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                  />
-                </div>
-                <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                  {tableVisualizations.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-4">
-                      {visualizationSearch ? 'No tables found' : 'No tables available. Any visualization can be used as a table.'}
-                    </p>
-                  ) : (
-                    tableVisualizations.map((viz) => (
-                      <VisualizationDragItem
-                        key={viz.id}
-                        visualization={viz}
-                        type="table"
-                        onDragStart={() => handleVisualizationDragStart('table', viz.id)}
-                        onClick={() => addElement('table', undefined, viz.id)}
-                      />
-                    ))
-                  )}
-                  {/* Also show other visualizations that can be displayed as tables */}
-                  {chartVisualizations.length > 0 && (
-                    <>
-                      <div className="text-xs text-gray-400 py-2 border-t border-gray-100 mt-2">
-                        Other visualizations (as table)
-                      </div>
-                      {chartVisualizations.map((viz) => (
-                        <VisualizationDragItem
-                          key={viz.id}
-                          visualization={viz}
-                          type="table"
-                          onDragStart={() => handleVisualizationDragStart('table', viz.id)}
-                          onClick={() => addElement('table', undefined, viz.id)}
-                        />
-                      ))}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Layers Panel */}
+            {/* Tab Content */}
             <div className="flex-1 overflow-auto">
-              <button
-                onClick={() => setExpandedPanels({ ...expandedPanels, layers: !expandedPanels.layers })}
-                className="flex items-center justify-between w-full px-4 py-3 hover:bg-gray-50 border-b border-gray-200"
-              >
-                <span className="text-sm font-medium text-gray-700">Layers</span>
-                {expandedPanels.layers ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                )}
-              </button>
-              {expandedPanels.layers && (
-                <div className="p-2">
-                  {/* Section tabs */}
-                  <div className="flex gap-1 mb-2 p-1 bg-gray-100 rounded-lg">
-                    {(['header', 'content', 'footer'] as ReportSectionType[]).map((section) => (
-                      <button
-                        key={section}
-                        onClick={() => setActiveSection(section)}
-                        className={clsx(
-                          'flex-1 px-2 py-1 text-xs font-medium rounded transition-colors capitalize',
-                          activeSection === section
-                            ? 'bg-white text-purple-700 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                        )}
-                      >
-                        {section}
-                      </button>
-                    ))}
+              {activeLeftTab === 'elements' ? (
+                /* Elements Tab */
+                <div className="p-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <ElementCard
+                      icon={<Type className="w-6 h-6" />}
+                      label="Text"
+                      hint="Heading or paragraph"
+                      onDragStart={() => handlePaletteDragStart('text')}
+                      onClick={() => addElement('text')}
+                    />
+                    <ElementCard
+                      icon={<ImageIcon className="w-6 h-6" />}
+                      label="Image"
+                      hint="Upload image"
+                      onDragStart={() => handlePaletteDragStart('image')}
+                      onClick={() => triggerImageUpload()}
+                    />
+                    <ElementCard
+                      icon={<Minus className="w-6 h-6" />}
+                      label="Line"
+                      hint="Divider line"
+                      onDragStart={() => handlePaletteDragStart('line')}
+                      onClick={() => addElement('line')}
+                    />
+                    <ElementCard
+                      icon={<Square className="w-6 h-6" />}
+                      label="Frame"
+                      hint="Container box"
+                      onDragStart={() => handlePaletteDragStart('frame')}
+                      onClick={() => addElement('frame')}
+                    />
                   </div>
 
-                  {/* Element list */}
-                  <div className="space-y-1">
-                    {elements
-                      .filter((e) => e.section === activeSection)
-                      .map((element) => (
-                        <div
-                          key={element.id}
-                          onClick={() => setSelectedElementId(element.id)}
-                          className={clsx(
-                            'flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm',
-                            selectedElementId === element.id
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'hover:bg-gray-100 text-gray-600'
-                          )}
-                        >
-                          <GripVertical className="w-3 h-3 text-gray-400" />
-                          {element.type === 'text' && <Type className="w-3.5 h-3.5" />}
-                          {element.type === 'image' && <ImageIcon className="w-3.5 h-3.5" />}
-                          {element.type === 'line' && <Minus className="w-3.5 h-3.5" />}
-                          {element.type === 'frame' && <Square className="w-3.5 h-3.5" />}
-                          {element.type === 'table' && <Table className="w-3.5 h-3.5" />}
-                          {element.type === 'chart' && <BarChart3 className="w-3.5 h-3.5" />}
-                          <span className="truncate flex-1">{element.name}</span>
-                          {element.locked && <Lock className="w-3 h-3 text-gray-400" />}
-                        </div>
-                      ))}
-                    {elements.filter((e) => e.section === activeSection).length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-4">
-                        No elements in {activeSection}
-                      </p>
-                    )}
+                  {/* Quick tip */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">
+                      <span className="font-medium text-gray-700">Tip:</span> Drag elements to canvas or click to add at default position
+                    </p>
                   </div>
+                </div>
+              ) : (
+                /* Assets Tab - Separated Charts & Tables */
+                <div className="p-3">
+                  {/* Search */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search visualizations..."
+                      value={assetSearch}
+                      onChange={(e) => setAssetSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {filteredVisualizations.length === 0 ? (
+                    <div className="text-center py-8">
+                      <BarChart3 className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">
+                        {assetSearch ? 'No visualizations found' : 'No visualizations available'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Create visualizations first to add them here
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Charts Section */}
+                      <AssetSection
+                        title="Charts"
+                        icon={<BarChart3 className="w-4 h-4" />}
+                        count={filteredVisualizations.filter(v => v.visualization_type !== 'table').length}
+                        defaultExpanded={true}
+                      >
+                        {filteredVisualizations
+                          .filter(v => v.visualization_type !== 'table')
+                          .map((viz) => (
+                            <AssetCard
+                              key={viz.id}
+                              visualization={viz}
+                              onDragStart={() => handleVisualizationDragStart('chart', viz.id)}
+                              onClickChart={() => addElement('chart', undefined, viz.id)}
+                              onClickTable={() => addElement('table', undefined, viz.id)}
+                            />
+                          ))}
+                      </AssetSection>
+
+                      {/* Tables Section */}
+                      <AssetSection
+                        title="Tables"
+                        icon={<Table className="w-4 h-4" />}
+                        count={filteredVisualizations.filter(v => v.visualization_type === 'table').length}
+                        defaultExpanded={true}
+                      >
+                        {filteredVisualizations
+                          .filter(v => v.visualization_type === 'table')
+                          .map((viz) => (
+                            <AssetCard
+                              key={viz.id}
+                              visualization={viz}
+                              onDragStart={() => handleVisualizationDragStart('table', viz.id)}
+                              onClickChart={() => addElement('chart', undefined, viz.id)}
+                              onClickTable={() => addElement('table', undefined, viz.id)}
+                            />
+                          ))}
+                      </AssetSection>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* Layers Panel - Collapsible */}
+            <LayersPanel
+              elements={elements}
+              activeSection={activeSection}
+              selectedElementId={selectedElementId}
+              onSetActiveSection={setActiveSection}
+              onSelectElement={setSelectedElementId}
+              onToggleVisibility={(id) => {
+                setElements(elements.map(el =>
+                  el.id === id ? { ...el, visible: !el.visible } : el
+                ))
+                setHasUnsavedChanges(true)
+              }}
+              onToggleLock={(id) => {
+                setElements(elements.map(el =>
+                  el.id === id ? { ...el, locked: !el.locked } : el
+                ))
+                setHasUnsavedChanges(true)
+              }}
+              onMoveUp={(element, index) => {
+                if (index > 0) {
+                  const sectionElements = elements.filter(e => e.section === activeSection)
+                  const otherElements = elements.filter(e => e.section !== activeSection)
+                  const newSectionElements = [...sectionElements]
+                  const sectionIndex = sectionElements.findIndex(e => e.id === element.id)
+                  ;[newSectionElements[sectionIndex], newSectionElements[sectionIndex - 1]] =
+                    [newSectionElements[sectionIndex - 1], newSectionElements[sectionIndex]]
+                  setElements([...otherElements, ...newSectionElements])
+                  setHasUnsavedChanges(true)
+                }
+              }}
+              onMoveDown={(element) => {
+                const sectionElements = elements.filter(e => e.section === activeSection)
+                const sectionIndex = sectionElements.findIndex(e => e.id === element.id)
+                if (sectionIndex < sectionElements.length - 1) {
+                  const otherElements = elements.filter(e => e.section !== activeSection)
+                  const newSectionElements = [...sectionElements]
+                  ;[newSectionElements[sectionIndex], newSectionElements[sectionIndex + 1]] =
+                    [newSectionElements[sectionIndex + 1], newSectionElements[sectionIndex]]
+                  setElements([...otherElements, ...newSectionElements])
+                  setHasUnsavedChanges(true)
+                }
+              }}
+            />
           </div>
         )}
 
         {/* Canvas Area */}
-        <div className="flex-1 overflow-auto bg-gray-200 p-8">
+        <div className="flex-1 min-h-0 overflow-auto bg-gray-200 p-4">
           <div
             ref={canvasRef}
             className="relative mx-auto bg-white shadow-xl"
             style={{
               width: pageWidth,
               minHeight: pageHeight,
+              // Grid overlay
+              backgroundImage: showGrid
+                ? `linear-gradient(to right, #f0f0f0 1px, transparent 1px),
+                   linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)`
+                : 'none',
+              backgroundSize: `${gridSize * zoom}px ${gridSize * zoom}px`,
             }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleCanvasDrop}
@@ -899,6 +934,8 @@ export default function ReportDesigner() {
                       isSelected={selectedElementId === element.id}
                       isEditing={isEditing}
                       zoom={zoom}
+                      snapToGrid={snapToGrid}
+                      gridSize={gridSize}
                       onSelect={() => setSelectedElementId(element.id)}
                       onUpdatePosition={(pos) => updateElementPosition(element.id, pos)}
                       onUpdateConfig={(config) => updateElementConfig(element.id, config)}
@@ -932,6 +969,8 @@ export default function ReportDesigner() {
                       isSelected={selectedElementId === element.id}
                       isEditing={isEditing}
                       zoom={zoom}
+                      snapToGrid={snapToGrid}
+                      gridSize={gridSize}
                       onSelect={() => setSelectedElementId(element.id)}
                       onUpdatePosition={(pos) => updateElementPosition(element.id, pos)}
                       onUpdateConfig={(config) => updateElementConfig(element.id, config)}
@@ -965,6 +1004,8 @@ export default function ReportDesigner() {
                       isSelected={selectedElementId === element.id}
                       isEditing={isEditing}
                       zoom={zoom}
+                      snapToGrid={snapToGrid}
+                      gridSize={gridSize}
                       onSelect={() => setSelectedElementId(element.id)}
                       onUpdatePosition={(pos) => updateElementPosition(element.id, pos)}
                       onUpdateConfig={(config) => updateElementConfig(element.id, config)}
@@ -979,11 +1020,7 @@ export default function ReportDesigner() {
 
         {/* Right Panel - Properties */}
         {isEditing && (
-          <div className="w-72 bg-white border-l border-gray-200 overflow-auto">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-sm font-medium text-gray-700">Properties</h3>
-            </div>
-
+          <div className="w-72 bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
             {selectedElement ? (
               <ElementPropertiesPanel
                 element={selectedElement}
@@ -993,13 +1030,26 @@ export default function ReportDesigner() {
                 onDuplicate={() => duplicateElement(selectedElement.id)}
               />
             ) : (
-              <PageSettingsPanel
-                settings={pageSettings}
-                onUpdate={(settings) => {
-                  setPageSettings(settings)
-                  setHasUnsavedChanges(true)
-                }}
-              />
+              <>
+                <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-gray-500">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800">Page Settings</h3>
+                      <div className="text-xs text-gray-500">Configure page layout</div>
+                    </div>
+                  </div>
+                </div>
+                <PageSettingsPanel
+                  settings={pageSettings}
+                  onUpdate={(settings) => {
+                    setPageSettings(settings)
+                    setHasUnsavedChanges(true)
+                  }}
+                />
+              </>
             )}
           </div>
         )}
@@ -1029,62 +1079,131 @@ export default function ReportDesigner() {
   )
 }
 
-// Element Palette Item Component
-function ElementPaletteItem({
+// Element Card Component - larger, more descriptive cards for Elements tab
+function ElementCard({
   icon,
   label,
+  hint,
   onDragStart,
   onClick,
-  isActive,
 }: {
   icon: React.ReactNode
   label: string
+  hint: string
   onDragStart: () => void
   onClick: () => void
-  isActive?: boolean
 }) {
   return (
     <div
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
-      className={clsx(
-        'flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer transition-colors',
-        isActive
-          ? 'bg-purple-100 border-purple-400 text-purple-700'
-          : 'bg-gray-50 hover:bg-purple-50 border-gray-200 hover:border-purple-300'
-      )}
+      className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-xl cursor-grab hover:border-purple-300 hover:bg-purple-50 hover:shadow-sm transition-all group"
     >
-      <div className={isActive ? 'text-purple-600' : 'text-gray-500'}>{icon}</div>
-      <span className={clsx('text-xs mt-1', isActive ? 'text-purple-700' : 'text-gray-600')}>{label}</span>
+      <div className="text-gray-400 group-hover:text-purple-600 transition-colors mb-2">
+        {icon}
+      </div>
+      <span className="text-sm font-medium text-gray-700 group-hover:text-purple-700">{label}</span>
+      <span className="text-[10px] text-gray-400 mt-0.5">{hint}</span>
     </div>
   )
 }
 
-// Visualization Drag Item Component - for dragging charts/tables from the panel
-function VisualizationDragItem({
+// Asset Section Component - Collapsible section for Charts/Tables
+function AssetSection({
+  title,
+  icon,
+  count,
+  defaultExpanded = true,
+  children,
+}: {
+  title: string
+  icon: React.ReactNode
+  count: number
+  defaultExpanded?: boolean
+  children: React.ReactNode
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+
+  if (count === 0) {
+    return null // Don't show section if no items
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      {/* Section Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-purple-600">{icon}</span>
+          <span className="text-sm font-medium text-gray-700">{title}</span>
+          <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-200 text-gray-600 rounded">
+            {count}
+          </span>
+        </div>
+        <ChevronDown
+          className={clsx(
+            'w-4 h-4 text-gray-400 transition-transform',
+            isExpanded && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {/* Section Content */}
+      {isExpanded && (
+        <div className="p-2 space-y-2 bg-white">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Asset Card Component - for visualizations in Assets tab
+function AssetCard({
   visualization,
-  type,
   onDragStart,
-  onClick,
+  onClickChart,
+  onClickTable,
 }: {
   visualization: Visualization
-  type: 'chart' | 'table'
   onDragStart: () => void
-  onClick: () => void
+  onClickChart: () => void
+  onClickTable: () => void
 }) {
   const getTypeIcon = () => {
     switch (visualization.visualization_type) {
       case 'bar':
-        return <BarChart3 className="w-4 h-4" />
+        return <BarChart3 className="w-5 h-5" />
       case 'line':
-        return <BarChart3 className="w-4 h-4" />
+        return <LineChart className="w-5 h-5" />
       case 'pie':
-        return <BarChart3 className="w-4 h-4" />
+        return <PieChart className="w-5 h-5" />
+      case 'area':
+        return <TrendingUp className="w-5 h-5" />
       case 'table':
-        return <Table className="w-4 h-4" />
+        return <Table className="w-5 h-5" />
       default:
-        return type === 'chart' ? <BarChart3 className="w-4 h-4" /> : <Table className="w-4 h-4" />
+        return <BarChart3 className="w-5 h-5" />
+    }
+  }
+
+  const getTypeColor = () => {
+    switch (visualization.visualization_type) {
+      case 'bar':
+        return 'bg-purple-100 text-purple-600'
+      case 'line':
+        return 'bg-blue-100 text-blue-600'
+      case 'pie':
+        return 'bg-orange-100 text-orange-600'
+      case 'area':
+        return 'bg-green-100 text-green-600'
+      case 'table':
+        return 'bg-emerald-100 text-emerald-600'
+      default:
+        return 'bg-gray-100 text-gray-600'
     }
   }
 
@@ -1092,24 +1211,325 @@ function VisualizationDragItem({
     <div
       draggable
       onDragStart={onDragStart}
-      onClick={onClick}
+      className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-purple-300 hover:shadow-sm transition-all cursor-grab"
+    >
+      {/* Card Header */}
+      <div className="p-3 flex items-start gap-3">
+        <div className={clsx('w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0', getTypeColor())}>
+          {getTypeIcon()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-gray-800 truncate">{visualization.name}</div>
+          {visualization.description && (
+            <div className="text-xs text-gray-400 truncate mt-0.5">{visualization.description}</div>
+          )}
+          <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">
+            {visualization.visualization_type}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex border-t border-gray-100">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onClickChart()
+          }}
+          className="flex-1 px-3 py-2 text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1"
+        >
+          <BarChart3 className="w-3.5 h-3.5" />
+          As Chart
+        </button>
+        <div className="w-px bg-gray-100" />
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onClickTable()
+          }}
+          className="flex-1 px-3 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center justify-center gap-1"
+        >
+          <Table className="w-3.5 h-3.5" />
+          As Table
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Layers Panel Component - Collapsible with clear section labels
+function LayersPanel({
+  elements,
+  activeSection,
+  selectedElementId,
+  onSetActiveSection,
+  onSelectElement,
+  onToggleVisibility,
+  onToggleLock,
+  onMoveUp,
+  onMoveDown,
+}: {
+  elements: ReportElement[]
+  activeSection: ReportSectionType
+  selectedElementId: string | null
+  onSetActiveSection: (section: ReportSectionType) => void
+  onSelectElement: (id: string) => void
+  onToggleVisibility: (id: string) => void
+  onToggleLock: (id: string) => void
+  onMoveUp: (element: ReportElement, index: number) => void
+  onMoveDown: (element: ReportElement) => void
+}) {
+  const [isExpanded, setIsExpanded] = useState(true)
+
+  const sectionLabels: Record<ReportSectionType, string> = {
+    header: 'Header',
+    content: 'Content',
+    footer: 'Footer',
+  }
+
+  const sectionElements = elements.filter((e) => e.section === activeSection)
+
+  return (
+    <div className="border-t-2 border-purple-200 bg-white">
+      {/* Header - Always visible */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-purple-600" />
+          <span className="text-sm font-semibold text-gray-800">Layers</span>
+          <span className="px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
+            {elements.length}
+          </span>
+        </div>
+        <ChevronDown
+          className={clsx(
+            'w-4 h-4 text-gray-400 transition-transform',
+            isExpanded && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div className="border-t border-gray-100">
+          {/* Section Tabs - Full words */}
+          <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+            <div className="flex gap-1">
+              {(['header', 'content', 'footer'] as ReportSectionType[]).map((section) => {
+                const count = elements.filter(e => e.section === section).length
+                return (
+                  <button
+                    key={section}
+                    onClick={() => onSetActiveSection(section)}
+                    className={clsx(
+                      'flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-all',
+                      activeSection === section
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                    )}
+                  >
+                    {sectionLabels[section]}
+                    {count > 0 && (
+                      <span className={clsx(
+                        'ml-1 px-1 py-0.5 text-[10px] rounded',
+                        activeSection === section
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-gray-100 text-gray-500'
+                      )}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Layer List */}
+          <div className="max-h-52 overflow-y-auto">
+            {sectionElements.length === 0 ? (
+              <div className="py-6 text-center">
+                <Layers className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-xs text-gray-400">
+                  No elements in {sectionLabels[activeSection]}
+                </p>
+                <p className="text-[10px] text-gray-300 mt-1">
+                  Drag elements from the left panel
+                </p>
+              </div>
+            ) : (
+              <div className="p-2 space-y-1">
+                {sectionElements.map((element, index) => (
+                  <LayerItem
+                    key={element.id}
+                    element={element}
+                    isSelected={selectedElementId === element.id}
+                    onSelect={() => onSelectElement(element.id)}
+                    onToggleVisibility={() => onToggleVisibility(element.id)}
+                    onToggleLock={() => onToggleLock(element.id)}
+                    onMoveUp={() => onMoveUp(element, index)}
+                    onMoveDown={() => onMoveDown(element)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Layer Item Component - for layers panel
+function LayerItem({
+  element,
+  isSelected,
+  onSelect,
+  onToggleVisibility,
+  onToggleLock,
+  onMoveUp,
+  onMoveDown,
+}: {
+  element: ReportElement
+  isSelected: boolean
+  onSelect: () => void
+  onToggleVisibility: () => void
+  onToggleLock: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+}) {
+  const getIcon = () => {
+    switch (element.type) {
+      case 'text':
+        return <Type className="w-3.5 h-3.5" />
+      case 'image':
+        return <ImageIcon className="w-3.5 h-3.5" />
+      case 'line':
+        return <Minus className="w-3.5 h-3.5" />
+      case 'frame':
+        return <Square className="w-3.5 h-3.5" />
+      case 'table':
+        return <Table className="w-3.5 h-3.5" />
+      case 'chart':
+        return <BarChart3 className="w-3.5 h-3.5" />
+      default:
+        return <Square className="w-3.5 h-3.5" />
+    }
+  }
+
+  return (
+    <div
+      onClick={onSelect}
       className={clsx(
-        'flex items-center gap-2 px-2 py-2 rounded-lg cursor-grab border transition-all',
-        type === 'chart'
-          ? 'bg-white hover:bg-purple-50 border-gray-200 hover:border-purple-300'
-          : 'bg-white hover:bg-emerald-50 border-gray-200 hover:border-emerald-300'
+        'group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all',
+        isSelected
+          ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+          : 'hover:bg-white text-gray-600 hover:shadow-sm'
       )}
     >
-      <div className={type === 'chart' ? 'text-purple-500' : 'text-emerald-500'}>
-        {getTypeIcon()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-gray-700 truncate">{visualization.name}</div>
-        {visualization.description && (
-          <div className="text-[10px] text-gray-400 truncate">{visualization.description}</div>
+      {/* Visibility Toggle */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggleVisibility()
+        }}
+        className={clsx(
+          'p-0.5 rounded transition-colors',
+          element.visible
+            ? 'text-gray-400 hover:text-gray-600'
+            : 'text-gray-300 hover:text-gray-500'
         )}
+        title={element.visible ? 'Hide' : 'Show'}
+      >
+        {element.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+      </button>
+
+      {/* Lock Toggle */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggleLock()
+        }}
+        className={clsx(
+          'p-0.5 rounded transition-colors',
+          element.locked
+            ? 'text-amber-500 hover:text-amber-600'
+            : 'text-gray-300 hover:text-gray-500'
+        )}
+        title={element.locked ? 'Unlock' : 'Lock'}
+      >
+        {element.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+      </button>
+
+      {/* Icon */}
+      <div className={isSelected ? 'text-purple-600' : 'text-gray-400'}>
+        {getIcon()}
       </div>
-      <div className="text-[10px] text-gray-400 uppercase">{visualization.visualization_type}</div>
+
+      {/* Name */}
+      <span className="flex-1 text-xs font-medium truncate">{element.name}</span>
+
+      {/* Move buttons - show on hover */}
+      <div className="hidden group-hover:flex items-center gap-0.5">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onMoveUp()
+          }}
+          className="p-0.5 text-gray-400 hover:text-gray-600 rounded"
+          title="Move up (bring forward)"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onMoveDown()
+          }}
+          className="p-0.5 text-gray-400 hover:text-gray-600 rounded"
+          title="Move down (send back)"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Collapsible Section Component for Right Panel
+function CollapsibleSection({
+  title,
+  icon,
+  children,
+  defaultOpen = true,
+}: {
+  title: string
+  icon?: React.ReactNode
+  children: React.ReactNode
+  defaultOpen?: boolean
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <div className="border-b border-gray-100">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {icon && <span className="text-gray-400">{icon}</span>}
+          <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{title}</span>
+        </div>
+        <ChevronDown
+          className={clsx(
+            'w-4 h-4 text-gray-400 transition-transform',
+            isOpen && 'rotate-180'
+          )}
+        />
+      </button>
+      {isOpen && <div className="px-4 pb-4">{children}</div>}
     </div>
   )
 }
@@ -1123,6 +1543,8 @@ function CanvasElement({
   onSelect,
   onUpdatePosition,
   onUpdateConfig,
+  snapToGrid,
+  gridSize,
 }: {
   element: ReportElement
   isSelected: boolean
@@ -1133,13 +1555,22 @@ function CanvasElement({
   onUpdateConfig: (config: any) => void
   onDelete?: () => void
   onDuplicate?: () => void
+  snapToGrid?: boolean
+  gridSize?: number
 }) {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [resizeHandle, setResizeHandle] = useState<string | null>(null)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isEditingText, setIsEditingText] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const textAreaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Snap to grid helper
+  const snap = (value: number) => {
+    if (!snapToGrid || !gridSize) return value
+    return Math.round(value / gridSize) * gridSize
+  }
 
   // Handle drag
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -1172,8 +1603,8 @@ function CanvasElement({
         const newX = (e.clientX - dragStart.x) / zoom
         const newY = (e.clientY - dragStart.y) / zoom
         onUpdatePosition({
-          x: Math.max(0, newX),
-          y: Math.max(0, newY),
+          x: Math.max(0, snap(newX)),
+          y: Math.max(0, snap(newY)),
         })
       }
 
@@ -1186,15 +1617,15 @@ function CanvasElement({
         let newX = element.position.x
         let newY = element.position.y
 
-        if (resizeHandle.includes('e')) newWidth = Math.max(20, element.position.width + deltaX)
+        if (resizeHandle.includes('e')) newWidth = Math.max(20, snap(element.position.width + deltaX))
         if (resizeHandle.includes('w')) {
-          newWidth = Math.max(20, element.position.width - deltaX)
-          newX = element.position.x + deltaX
+          newWidth = Math.max(20, snap(element.position.width - deltaX))
+          newX = snap(element.position.x + deltaX)
         }
-        if (resizeHandle.includes('s')) newHeight = Math.max(10, element.position.height + deltaY)
+        if (resizeHandle.includes('s')) newHeight = Math.max(10, snap(element.position.height + deltaY))
         if (resizeHandle.includes('n')) {
-          newHeight = Math.max(10, element.position.height - deltaY)
-          newY = element.position.y + deltaY
+          newHeight = Math.max(10, snap(element.position.height - deltaY))
+          newY = snap(element.position.y + deltaY)
         }
 
         setDragStart({ x: e.clientX, y: e.clientY })
@@ -1358,9 +1789,11 @@ function CanvasElement({
   return (
     <div
       className={clsx(
-        'absolute',
+        'absolute transition-shadow',
         isSelected && isEditing && 'ring-2 ring-purple-500',
-        isDragging && 'cursor-grabbing'
+        !isSelected && isHovered && isEditing && 'ring-2 ring-purple-300 ring-opacity-50',
+        isDragging && 'cursor-grabbing',
+        !isDragging && isEditing && !element.locked && 'cursor-grab'
       )}
       style={{
         left: element.position.x * zoom,
@@ -1370,6 +1803,8 @@ function CanvasElement({
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={(e) => {
         e.stopPropagation()
         onSelect()
@@ -1383,7 +1818,7 @@ function CanvasElement({
           {resizeHandles.map((handle) => (
             <div
               key={handle}
-              className="absolute w-2 h-2 bg-white border-2 border-purple-500 z-10"
+              className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm z-10 hover:bg-purple-100 hover:scale-110 transition-transform"
               style={{
                 ...getHandlePosition(handle),
                 cursor: `${handle}-resize`,
@@ -1399,29 +1834,30 @@ function CanvasElement({
 
 // Get resize handle position styles
 function getHandlePosition(handle: string): React.CSSProperties {
+  const offset = -6 // Half of handle size (12px / 2)
   switch (handle) {
     case 'n':
-      return { top: -4, left: '50%', transform: 'translateX(-50%)' }
+      return { top: offset, left: '50%', transform: 'translateX(-50%)' }
     case 'ne':
-      return { top: -4, right: -4 }
+      return { top: offset, right: offset }
     case 'e':
-      return { top: '50%', right: -4, transform: 'translateY(-50%)' }
+      return { top: '50%', right: offset, transform: 'translateY(-50%)' }
     case 'se':
-      return { bottom: -4, right: -4 }
+      return { bottom: offset, right: offset }
     case 's':
-      return { bottom: -4, left: '50%', transform: 'translateX(-50%)' }
+      return { bottom: offset, left: '50%', transform: 'translateX(-50%)' }
     case 'sw':
-      return { bottom: -4, left: -4 }
+      return { bottom: offset, left: offset }
     case 'w':
-      return { top: '50%', left: -4, transform: 'translateY(-50%)' }
+      return { top: '50%', left: offset, transform: 'translateY(-50%)' }
     case 'nw':
-      return { top: -4, left: -4 }
+      return { top: offset, left: offset }
     default:
       return {}
   }
 }
 
-// Element Properties Panel
+// Element Properties Panel with Collapsible Sections
 function ElementPropertiesPanel({
   element,
   onUpdate,
@@ -1435,118 +1871,167 @@ function ElementPropertiesPanel({
   onDelete: () => void
   onDuplicate: () => void
 }) {
+  // Get element type icon
+  const getElementIcon = () => {
+    switch (element.type) {
+      case 'text':
+        return <Type className="w-4 h-4" />
+      case 'image':
+        return <ImageIcon className="w-4 h-4" />
+      case 'line':
+        return <Minus className="w-4 h-4" />
+      case 'frame':
+        return <Square className="w-4 h-4" />
+      case 'table':
+        return <Table className="w-4 h-4" />
+      case 'chart':
+        return <BarChart3 className="w-4 h-4" />
+      default:
+        return <Square className="w-4 h-4" />
+    }
+  }
+
   return (
-    <div className="p-4 space-y-4">
-      {/* Element info */}
-      <div className="space-y-2">
-        <label className="block text-xs text-gray-500">Name</label>
-        <input
-          type="text"
-          value={element.name}
-          onChange={(e) => onUpdate({ name: e.target.value })}
-          className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
+    <div className="divide-y divide-gray-100">
+      {/* Element Header */}
+      <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-purple-600">
+            {getElementIcon()}
+          </div>
+          <div className="flex-1">
+            <input
+              type="text"
+              value={element.name}
+              onChange={(e) => onUpdate({ name: e.target.value })}
+              className="w-full text-sm font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+              placeholder="Element name"
+            />
+            <div className="text-xs text-gray-500 capitalize">{element.type} Element</div>
+          </div>
+        </div>
+        {/* Quick Actions */}
+        <div className="flex gap-1">
+          <button
+            onClick={() => onUpdate({ locked: !element.locked })}
+            className={clsx(
+              'p-1.5 rounded-lg text-xs transition-colors',
+              element.locked
+                ? 'bg-amber-100 text-amber-600'
+                : 'bg-white text-gray-500 hover:bg-gray-100'
+            )}
+            title={element.locked ? 'Unlock' : 'Lock'}
+          >
+            {element.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => onUpdate({ visible: !element.visible })}
+            className={clsx(
+              'p-1.5 rounded-lg text-xs transition-colors',
+              !element.visible
+                ? 'bg-gray-200 text-gray-500'
+                : 'bg-white text-gray-500 hover:bg-gray-100'
+            )}
+            title={element.visible ? 'Hide' : 'Show'}
+          >
+            {element.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={onDuplicate}
+            className="p-1.5 rounded-lg bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+            title="Duplicate"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg bg-white text-red-500 hover:bg-red-50 transition-colors ml-auto"
+            title="Delete"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
-      {/* Position */}
-      <div>
-        <label className="block text-xs text-gray-500 mb-2">Position</label>
+      {/* Transform Section */}
+      <CollapsibleSection title="Transform" icon={<Move className="w-3.5 h-3.5" />}>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs text-gray-400">X</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">X</label>
             <input
               type="number"
               value={Math.round(element.position.x)}
               onChange={(e) => onUpdate({ position: { ...element.position, x: parseFloat(e.target.value) || 0 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400">Y</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Y</label>
             <input
               type="number"
               value={Math.round(element.position.y)}
               onChange={(e) => onUpdate({ position: { ...element.position, y: parseFloat(e.target.value) || 0 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400">Width</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Width</label>
             <input
               type="number"
               value={Math.round(element.position.width)}
               onChange={(e) => onUpdate({ position: { ...element.position, width: parseFloat(e.target.value) || 20 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400">Height</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Height</label>
             <input
               type="number"
               value={Math.round(element.position.height)}
               onChange={(e) => onUpdate({ position: { ...element.position, height: parseFloat(e.target.value) || 10 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      {/* Type-specific properties */}
+      {/* Type-specific Style Section */}
       {element.type === 'text' && (
-        <TextElementProperties
-          config={element.config as TextElementConfig}
-          onUpdate={onUpdateConfig}
-        />
+        <CollapsibleSection title="Style" icon={<Palette className="w-3.5 h-3.5" />}>
+          <TextElementProperties
+            config={element.config as TextElementConfig}
+            onUpdate={onUpdateConfig}
+          />
+        </CollapsibleSection>
       )}
 
       {element.type === 'image' && (
-        <ImageElementProperties
-          config={element.config as ImageElementConfig}
-          onUpdate={onUpdateConfig}
-        />
+        <CollapsibleSection title="Settings" icon={<Settings2 className="w-3.5 h-3.5" />}>
+          <ImageElementProperties
+            config={element.config as ImageElementConfig}
+            onUpdate={onUpdateConfig}
+          />
+        </CollapsibleSection>
       )}
 
       {element.type === 'line' && (
-        <LineElementProperties
-          config={element.config as LineElementConfig}
-          onUpdate={onUpdateConfig}
-        />
+        <CollapsibleSection title="Style" icon={<Palette className="w-3.5 h-3.5" />}>
+          <LineElementProperties
+            config={element.config as LineElementConfig}
+            onUpdate={onUpdateConfig}
+          />
+        </CollapsibleSection>
       )}
 
       {(element.type === 'chart' || element.type === 'table') && (
-        <ChartTableElementProperties
-          config={element.config as ChartElementConfig}
-          elementType={element.type}
-          onUpdate={onUpdateConfig}
-        />
+        <CollapsibleSection title="Data" icon={<BarChart3 className="w-3.5 h-3.5" />}>
+          <ChartTableElementProperties
+            config={element.config as ChartElementConfig}
+            elementType={element.type}
+            onUpdate={onUpdateConfig}
+          />
+        </CollapsibleSection>
       )}
-
-      {/* Actions */}
-      <div className="pt-4 border-t border-gray-200 space-y-2">
-        <div className="flex gap-2">
-          <button
-            onClick={() => onUpdate({ locked: !element.locked })}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            {element.locked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-            {element.locked ? 'Unlock' : 'Lock'}
-          </button>
-          <button
-            onClick={onDuplicate}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            <Copy className="w-4 h-4" />
-            Duplicate
-          </button>
-        </div>
-        <button
-          onClick={onDelete}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </button>
-      </div>
     </div>
   )
 }
@@ -1869,7 +2354,7 @@ function ChartTableElementProperties({
   )
 }
 
-// Page Settings Panel
+// Page Settings Panel with Collapsible Sections
 function PageSettingsPanel({
   settings,
   onUpdate,
@@ -1878,117 +2363,122 @@ function PageSettingsPanel({
   onUpdate: (settings: PageSettings) => void
 }) {
   return (
-    <div className="p-4 space-y-4">
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Page Size</label>
-        <select
-          value={settings.pageSize}
-          onChange={(e) => {
-            const size = e.target.value as 'A4' | 'Letter' | 'Legal'
-            const dimensions = { A4: { width: 210, height: 297 }, Letter: { width: 216, height: 279 }, Legal: { width: 216, height: 356 } }[size]
-            onUpdate({ ...settings, pageSize: size, ...dimensions })
-          }}
-          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg"
-        >
-          <option value="A4">A4</option>
-          <option value="Letter">Letter</option>
-          <option value="Legal">Legal</option>
-        </select>
-      </div>
+    <div className="divide-y divide-gray-100">
+      {/* Page Size & Orientation */}
+      <CollapsibleSection title="Page" icon={<FileText className="w-3.5 h-3.5" />}>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Size</label>
+            <select
+              value={settings.pageSize}
+              onChange={(e) => {
+                const size = e.target.value as 'A4' | 'Letter' | 'Legal'
+                const dimensions = { A4: { width: 210, height: 297 }, Letter: { width: 216, height: 279 }, Legal: { width: 216, height: 356 } }[size]
+                onUpdate({ ...settings, pageSize: size, ...dimensions })
+              }}
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="A4">A4</option>
+              <option value="Letter">Letter</option>
+              <option value="Legal">Legal</option>
+            </select>
+          </div>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Orientation</label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onUpdate({ ...settings, orientation: 'portrait', width: Math.min(settings.width, settings.height), height: Math.max(settings.width, settings.height) })}
-            className={clsx(
-              'flex-1 px-3 py-2 text-sm rounded-lg border',
-              settings.orientation === 'portrait'
-                ? 'bg-purple-100 border-purple-300 text-purple-700'
-                : 'border-gray-200 hover:bg-gray-50'
-            )}
-          >
-            Portrait
-          </button>
-          <button
-            onClick={() => onUpdate({ ...settings, orientation: 'landscape', width: Math.max(settings.width, settings.height), height: Math.min(settings.width, settings.height) })}
-            className={clsx(
-              'flex-1 px-3 py-2 text-sm rounded-lg border',
-              settings.orientation === 'landscape'
-                ? 'bg-purple-100 border-purple-300 text-purple-700'
-                : 'border-gray-200 hover:bg-gray-50'
-            )}
-          >
-            Landscape
-          </button>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Orientation</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onUpdate({ ...settings, orientation: 'portrait', width: Math.min(settings.width, settings.height), height: Math.max(settings.width, settings.height) })}
+                className={clsx(
+                  'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
+                  settings.orientation === 'portrait'
+                    ? 'bg-purple-100 border-purple-300 text-purple-700'
+                    : 'border-gray-200 hover:bg-gray-50'
+                )}
+              >
+                Portrait
+              </button>
+              <button
+                onClick={() => onUpdate({ ...settings, orientation: 'landscape', width: Math.max(settings.width, settings.height), height: Math.min(settings.width, settings.height) })}
+                className={clsx(
+                  'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
+                  settings.orientation === 'landscape'
+                    ? 'bg-purple-100 border-purple-300 text-purple-700'
+                    : 'border-gray-200 hover:bg-gray-50'
+                )}
+              >
+                Landscape
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-2">Margins (mm)</label>
+      {/* Margins */}
+      <CollapsibleSection title="Margins" icon={<Square className="w-3.5 h-3.5" />}>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs text-gray-400">Top</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Top (mm)</label>
             <input
               type="number"
               value={settings.margins.top}
               onChange={(e) => onUpdate({ ...settings, margins: { ...settings.margins, top: parseInt(e.target.value) || 0 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400">Bottom</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Bottom (mm)</label>
             <input
               type="number"
               value={settings.margins.bottom}
               onChange={(e) => onUpdate({ ...settings, margins: { ...settings.margins, bottom: parseInt(e.target.value) || 0 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400">Left</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Left (mm)</label>
             <input
               type="number"
               value={settings.margins.left}
               onChange={(e) => onUpdate({ ...settings, margins: { ...settings.margins, left: parseInt(e.target.value) || 0 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400">Right</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Right (mm)</label>
             <input
               type="number"
               value={settings.margins.right}
               onChange={(e) => onUpdate({ ...settings, margins: { ...settings.margins, right: parseInt(e.target.value) || 0 } })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-2">Section Heights (mm)</label>
+      {/* Section Heights */}
+      <CollapsibleSection title="Sections" icon={<Layers className="w-3.5 h-3.5" />}>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs text-gray-400">Header</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Header (mm)</label>
             <input
               type="number"
               value={settings.headerHeight}
               onChange={(e) => onUpdate({ ...settings, headerHeight: parseInt(e.target.value) || 0 })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400">Footer</label>
+            <label className="block text-[10px] text-gray-400 mb-1 uppercase">Footer (mm)</label>
             <input
               type="number"
               value={settings.footerHeight}
               onChange={(e) => onUpdate({ ...settings, footerHeight: parseInt(e.target.value) || 0 })}
-              className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   )
 }

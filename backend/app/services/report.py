@@ -44,6 +44,7 @@ class ReportService:
     async def create_report(self, data: ReportCreate) -> Report:
         """Create a new report."""
         blocks_data = [block.model_dump() for block in data.blocks] if data.blocks else []
+        elements_data = data.elements if data.elements else []
         settings_data = data.settings.model_dump() if data.settings else {
             "page_size": "A4",
             "orientation": "portrait",
@@ -53,6 +54,7 @@ class ReportService:
         report = Report(
             name=data.name,
             description=data.description,
+            elements=elements_data,
             blocks=blocks_data,
             settings=settings_data,
         )
@@ -133,6 +135,7 @@ class ReportService:
         duplicate = Report(
             name=new_name or f"{original.name} (Copy)",
             description=original.description,
+            elements=original.elements.copy() if original.elements else [],
             blocks=original.blocks.copy() if original.blocks else [],
             settings=original.settings.copy() if original.settings else {},
             is_public=False,
