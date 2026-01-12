@@ -191,10 +191,13 @@ export default function ReportDesigner() {
   const [draggedElementType, setDraggedElementType] = useState<ReportElementType | null>(null)
   const [showVisualizationPicker, setShowVisualizationPicker] = useState(false)
   const [pendingElementType, setPendingElementType] = useState<'chart' | 'table' | null>(null)
+  const [pendingImageElementId, setPendingImageElementId] = useState<string | null>(null)
+  const [pendingDropPosition, setPendingDropPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Refs
   const canvasRef = useRef<HTMLDivElement>(null)
   const reportContentRef = useRef<HTMLDivElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch existing report
   const { data: report, isLoading } = useQuery({
@@ -286,7 +289,7 @@ export default function ReportDesigner() {
   }
 
   // Add element to canvas
-  const addElement = (type: ReportElementType, position?: { x: number; y: number }, visualizationId?: number) => {
+  const addElement = (type: ReportElementType, position?: { x: number; y: number }, visualizationId?: number, imageSrc?: string) => {
     const defaultSize = DEFAULT_ELEMENT_SIZES[type]
     const newElement: ReportElement = {
       id: uuidv4(),
@@ -309,9 +312,72 @@ export default function ReportDesigner() {
       (newElement.config as any).visualization_id = visualizationId
     }
 
+    // Set image source if provided
+    if (imageSrc && type === 'image') {
+      (newElement.config as ImageElementConfig).src = imageSrc
+    }
+
     setElements([...elements, newElement])
     setSelectedElementId(newElement.id)
     setHasUnsavedChanges(true)
+
+    return newElement.id
+  }
+
+  // Handle image file selection
+  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      // User cancelled - clear pending state
+      setPendingDropPosition(null)
+      setPendingImageElementId(null)
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB')
+      setPendingDropPosition(null)
+      setPendingImageElementId(null)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const imageSrc = event.target?.result as string
+
+      if (pendingImageElementId) {
+        // Update existing element
+        const element = elements.find(el => el.id === pendingImageElementId)
+        if (element) {
+          updateElementConfig(pendingImageElementId, {
+            ...element.config,
+            src: imageSrc,
+            alt: file.name,
+          })
+        }
+        setPendingImageElementId(null)
+      } else {
+        // Create new element with image at the drop position or default position
+        addElement('image', pendingDropPosition || undefined, undefined, imageSrc)
+        setPendingDropPosition(null)
+      }
+    }
+    reader.readAsDataURL(file)
+
+    // Reset input
+    if (imageInputRef.current) {
+      imageInputRef.current.value = ''
+    }
+  }
+
+  // Trigger image upload
+  const triggerImageUpload = (existingElementId?: string) => {
+    if (existingElementId) {
+      setPendingImageElementId(existingElementId)
+    } else {
+      setPendingImageElementId(null)
+    }
+    imageInputRef.current?.click()
   }
 
   // Update element
@@ -382,6 +448,10 @@ export default function ReportDesigner() {
     if (draggedElementType === 'chart' || draggedElementType === 'table') {
       setPendingElementType(draggedElementType)
       setShowVisualizationPicker(true)
+    } else if (draggedElementType === 'image') {
+      // Store drop position and trigger file picker
+      setPendingDropPosition({ x, y })
+      triggerImageUpload()
     } else {
       addElement(draggedElementType, { x, y })
     }
@@ -564,7 +634,7 @@ export default function ReportDesigner() {
                     icon={<ImageIcon className="w-5 h-5" />}
                     label="Image"
                     onDragStart={() => handlePaletteDragStart('image')}
-                    onClick={() => addElement('image')}
+                    onClick={() => triggerImageUpload()}
                   />
                   <ElementPaletteItem
                     icon={<Minus className="w-5 h-5" />}
@@ -815,6 +885,15 @@ export default function ReportDesigner() {
           </div>
         )}
       </div>
+
+      {/* Hidden file input for image upload */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageFileSelect}
+        className="hidden"
+      />
 
       {/* Visualization Picker Modal */}
       {showVisualizationPicker && (
