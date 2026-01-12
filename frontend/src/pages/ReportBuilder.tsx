@@ -36,7 +36,6 @@ import {
   Copy,
   Check,
   FileText,
-  FileSpreadsheet,
   MessageCircle,
   MoreHorizontal,
   Heading1,
@@ -555,7 +554,7 @@ export default function ReportBuilder() {
 
             {/* Add block at bottom */}
             {isEditing && blocks.length > 0 && (
-              <div className="mt-8 flex justify-center">
+              <div className="mt-8 flex justify-center" data-pdf-hide="true">
                 <button
                   onClick={() => setShowAddBlockMenu('bottom')}
                   className="flex items-center gap-2 px-5 py-3 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-all border-2 border-dashed border-gray-200 hover:border-purple-300"
@@ -1060,7 +1059,6 @@ function ShareModal({
 }) {
   const [copied, setCopied] = useState(false)
   const [isExportingPDF, setIsExportingPDF] = useState(false)
-  const [isExportingExcel, setIsExportingExcel] = useState(false)
 
   const shareUrl = report.share_token
     ? `${window.location.origin}/reports/shared/${report.share_token}`
@@ -1091,6 +1089,12 @@ function ShareModal({
         modalBackdrop.style.display = 'none'
       }
 
+      // Hide elements marked with data-pdf-hide (like "Add block" button)
+      const elementsToHide = contentRef.current.querySelectorAll('[data-pdf-hide="true"]') as NodeListOf<HTMLElement>
+      elementsToHide.forEach(el => {
+        el.style.display = 'none'
+      })
+
       await new Promise((resolve) => setTimeout(resolve, 100))
 
       // Use modern-screenshot which properly handles oklch colors
@@ -1107,6 +1111,11 @@ function ShareModal({
       if (modalBackdrop) {
         modalBackdrop.style.display = 'flex'
       }
+
+      // Restore hidden elements
+      elementsToHide.forEach(el => {
+        el.style.display = ''
+      })
 
       // Create image to get dimensions
       const img = new Image()
@@ -1165,30 +1174,16 @@ function ShareModal({
       if (modalBackdrop) {
         modalBackdrop.style.display = 'flex'
       }
+
+      // Restore hidden elements on error
+      if (contentRef.current) {
+        const elementsToRestore = contentRef.current.querySelectorAll('[data-pdf-hide="true"]') as NodeListOf<HTMLElement>
+        elementsToRestore.forEach(el => {
+          el.style.display = ''
+        })
+      }
     } finally {
       setIsExportingPDF(false)
-    }
-  }
-
-  const handleExcelExport = async () => {
-    setIsExportingExcel(true)
-    try {
-      let csvContent = ''
-      csvContent += `Report: ${report.name}\n`
-      csvContent += `Generated: ${new Date().toLocaleString()}\n\n`
-      csvContent += 'Report Name,Description,Created At\n'
-      csvContent += `"${report.name}","${report.description || ''}","${report.created_at || ''}"\n`
-
-      const blob = new Blob([csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `${report.name.replace(/[^a-z0-9]/gi, '_')}.csv`
-      link.click()
-      URL.revokeObjectURL(link.href)
-    } catch (error) {
-      console.error('Failed to export Excel:', error)
-    } finally {
-      setIsExportingExcel(false)
     }
   }
 
