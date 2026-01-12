@@ -187,10 +187,10 @@ export default function ReportDesigner() {
   const [zoom, setZoom] = useState(1)
   const [showShareModal, setShowShareModal] = useState(false)
   const [activeSection, setActiveSection] = useState<ReportSectionType>('content')
-  const [expandedPanels, setExpandedPanels] = useState({ elements: true, layers: true, properties: true })
+  const [expandedPanels, setExpandedPanels] = useState({ elements: true, layers: true, properties: true, charts: false, tables: false })
   const [draggedElementType, setDraggedElementType] = useState<ReportElementType | null>(null)
-  const [showVisualizationPicker, setShowVisualizationPicker] = useState(false)
-  const [pendingElementType, setPendingElementType] = useState<'chart' | 'table' | null>(null)
+  const [draggedVisualizationId, setDraggedVisualizationId] = useState<number | null>(null)
+  const [visualizationSearch, setVisualizationSearch] = useState('')
   const [pendingImageElementId, setPendingImageElementId] = useState<string | null>(null)
   const [pendingDropPosition, setPendingDropPosition] = useState<{ x: number; y: number } | null>(null)
 
@@ -434,39 +434,63 @@ export default function ReportDesigner() {
   // Handle drag start from palette
   const handlePaletteDragStart = (type: ReportElementType) => {
     setDraggedElementType(type)
+    setDraggedVisualizationId(null)
+  }
+
+  // Handle drag start for visualization items
+  const handleVisualizationDragStart = (type: 'chart' | 'table', visualizationId: number) => {
+    setDraggedElementType(type)
+    setDraggedVisualizationId(visualizationId)
   }
 
   // Handle drop on canvas
   const handleCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    if (!draggedElementType || !canvasRef.current) return
+    if (!canvasRef.current) return
 
     const rect = canvasRef.current.getBoundingClientRect()
     const x = (e.clientX - rect.left) / zoom
     const y = (e.clientY - rect.top) / zoom
 
-    if (draggedElementType === 'chart' || draggedElementType === 'table') {
-      setPendingElementType(draggedElementType)
-      setShowVisualizationPicker(true)
-    } else if (draggedElementType === 'image') {
-      // Store drop position and trigger file picker
-      setPendingDropPosition({ x, y })
-      triggerImageUpload()
-    } else {
-      addElement(draggedElementType, { x, y })
+    // If dropping a visualization with ID (from the visualization panel)
+    if (draggedVisualizationId && draggedElementType) {
+      addElement(draggedElementType, { x, y }, draggedVisualizationId)
+      setDraggedVisualizationId(null)
+      setDraggedElementType(null)
+      return
     }
 
-    setDraggedElementType(null)
+    // If dropping a generic element type
+    if (draggedElementType) {
+      if (draggedElementType === 'chart') {
+        // Expand charts panel instead of opening modal
+        setExpandedPanels({ ...expandedPanels, charts: true, tables: false })
+      } else if (draggedElementType === 'table') {
+        // Expand tables panel instead of opening modal
+        setExpandedPanels({ ...expandedPanels, tables: true, charts: false })
+      } else if (draggedElementType === 'image') {
+        // Store drop position and trigger file picker
+        setPendingDropPosition({ x, y })
+        triggerImageUpload()
+      } else {
+        addElement(draggedElementType, { x, y })
+      }
+      setDraggedElementType(null)
+    }
   }
 
-  // Handle visualization selection
-  const handleSelectVisualization = (visualization: Visualization) => {
-    if (pendingElementType) {
-      addElement(pendingElementType, undefined, visualization.id)
-    }
-    setShowVisualizationPicker(false)
-    setPendingElementType(null)
-  }
+  // Filter visualizations based on search
+  const filteredVisualizations = visualizations.filter((v) =>
+    v.name.toLowerCase().includes(visualizationSearch.toLowerCase())
+  )
+
+  // Separate charts and tables
+  const chartVisualizations = filteredVisualizations.filter(
+    (v) => v.visualization_type !== 'table'
+  )
+  const tableVisualizations = filteredVisualizations.filter(
+    (v) => v.visualization_type === 'table'
+  )
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -652,23 +676,118 @@ export default function ReportDesigner() {
                     icon={<Table className="w-5 h-5" />}
                     label="Table"
                     onDragStart={() => handlePaletteDragStart('table')}
-                    onClick={() => {
-                      setPendingElementType('table')
-                      setShowVisualizationPicker(true)
-                    }}
+                    onClick={() => setExpandedPanels({ ...expandedPanels, tables: !expandedPanels.tables, charts: false })}
+                    isActive={expandedPanels.tables}
                   />
                   <ElementPaletteItem
                     icon={<BarChart3 className="w-5 h-5" />}
                     label="Chart"
                     onDragStart={() => handlePaletteDragStart('chart')}
-                    onClick={() => {
-                      setPendingElementType('chart')
-                      setShowVisualizationPicker(true)
-                    }}
+                    onClick={() => setExpandedPanels({ ...expandedPanels, charts: !expandedPanels.charts, tables: false })}
+                    isActive={expandedPanels.charts}
                   />
                 </div>
               )}
             </div>
+
+            {/* Charts Panel - Expandable */}
+            {expandedPanels.charts && (
+              <div className="border-b border-gray-200">
+                <div className="px-3 py-2 bg-purple-50 border-b border-purple-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-purple-700">Charts</span>
+                    <button
+                      onClick={() => setExpandedPanels({ ...expandedPanels, charts: false })}
+                      className="p-1 hover:bg-purple-100 rounded"
+                    >
+                      <X className="w-3.5 h-3.5 text-purple-500" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search charts..."
+                    value={visualizationSearch}
+                    onChange={(e) => setVisualizationSearch(e.target.value)}
+                    className="w-full px-2 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                  {chartVisualizations.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-4">
+                      {visualizationSearch ? 'No charts found' : 'No charts available'}
+                    </p>
+                  ) : (
+                    chartVisualizations.map((viz) => (
+                      <VisualizationDragItem
+                        key={viz.id}
+                        visualization={viz}
+                        type="chart"
+                        onDragStart={() => handleVisualizationDragStart('chart', viz.id)}
+                        onClick={() => addElement('chart', undefined, viz.id)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tables Panel - Expandable */}
+            {expandedPanels.tables && (
+              <div className="border-b border-gray-200">
+                <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-emerald-700">Tables</span>
+                    <button
+                      onClick={() => setExpandedPanels({ ...expandedPanels, tables: false })}
+                      className="p-1 hover:bg-emerald-100 rounded"
+                    >
+                      <X className="w-3.5 h-3.5 text-emerald-500" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search tables..."
+                    value={visualizationSearch}
+                    onChange={(e) => setVisualizationSearch(e.target.value)}
+                    className="w-full px-2 py-1.5 text-xs border border-emerald-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                  {tableVisualizations.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-4">
+                      {visualizationSearch ? 'No tables found' : 'No tables available. Any visualization can be used as a table.'}
+                    </p>
+                  ) : (
+                    tableVisualizations.map((viz) => (
+                      <VisualizationDragItem
+                        key={viz.id}
+                        visualization={viz}
+                        type="table"
+                        onDragStart={() => handleVisualizationDragStart('table', viz.id)}
+                        onClick={() => addElement('table', undefined, viz.id)}
+                      />
+                    ))
+                  )}
+                  {/* Also show other visualizations that can be displayed as tables */}
+                  {chartVisualizations.length > 0 && (
+                    <>
+                      <div className="text-xs text-gray-400 py-2 border-t border-gray-100 mt-2">
+                        Other visualizations (as table)
+                      </div>
+                      {chartVisualizations.map((viz) => (
+                        <VisualizationDragItem
+                          key={viz.id}
+                          visualization={viz}
+                          type="table"
+                          onDragStart={() => handleVisualizationDragStart('table', viz.id)}
+                          onClick={() => addElement('table', undefined, viz.id)}
+                        />
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Layers Panel */}
             <div className="flex-1 overflow-auto">
@@ -895,19 +1014,6 @@ export default function ReportDesigner() {
         className="hidden"
       />
 
-      {/* Visualization Picker Modal */}
-      {showVisualizationPicker && (
-        <VisualizationPickerModal
-          visualizations={visualizations}
-          onSelect={handleSelectVisualization}
-          onClose={() => {
-            setShowVisualizationPicker(false)
-            setPendingElementType(null)
-          }}
-          elementType={pendingElementType}
-        />
-      )}
-
       {/* Share Modal */}
       {showShareModal && reportId && report && (
         <ShareModal
@@ -929,21 +1035,81 @@ function ElementPaletteItem({
   label,
   onDragStart,
   onClick,
+  isActive,
 }: {
   icon: React.ReactNode
   label: string
   onDragStart: () => void
   onClick: () => void
+  isActive?: boolean
 }) {
   return (
     <div
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
-      className="flex flex-col items-center justify-center p-3 bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-300 rounded-lg cursor-pointer transition-colors"
+      className={clsx(
+        'flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer transition-colors',
+        isActive
+          ? 'bg-purple-100 border-purple-400 text-purple-700'
+          : 'bg-gray-50 hover:bg-purple-50 border-gray-200 hover:border-purple-300'
+      )}
     >
-      <div className="text-gray-500">{icon}</div>
-      <span className="text-xs text-gray-600 mt-1">{label}</span>
+      <div className={isActive ? 'text-purple-600' : 'text-gray-500'}>{icon}</div>
+      <span className={clsx('text-xs mt-1', isActive ? 'text-purple-700' : 'text-gray-600')}>{label}</span>
+    </div>
+  )
+}
+
+// Visualization Drag Item Component - for dragging charts/tables from the panel
+function VisualizationDragItem({
+  visualization,
+  type,
+  onDragStart,
+  onClick,
+}: {
+  visualization: Visualization
+  type: 'chart' | 'table'
+  onDragStart: () => void
+  onClick: () => void
+}) {
+  const getTypeIcon = () => {
+    switch (visualization.visualization_type) {
+      case 'bar':
+        return <BarChart3 className="w-4 h-4" />
+      case 'line':
+        return <BarChart3 className="w-4 h-4" />
+      case 'pie':
+        return <BarChart3 className="w-4 h-4" />
+      case 'table':
+        return <Table className="w-4 h-4" />
+      default:
+        return type === 'chart' ? <BarChart3 className="w-4 h-4" /> : <Table className="w-4 h-4" />
+    }
+  }
+
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onClick={onClick}
+      className={clsx(
+        'flex items-center gap-2 px-2 py-2 rounded-lg cursor-grab border transition-all',
+        type === 'chart'
+          ? 'bg-white hover:bg-purple-50 border-gray-200 hover:border-purple-300'
+          : 'bg-white hover:bg-emerald-50 border-gray-200 hover:border-emerald-300'
+      )}
+    >
+      <div className={type === 'chart' ? 'text-purple-500' : 'text-emerald-500'}>
+        {getTypeIcon()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-medium text-gray-700 truncate">{visualization.name}</div>
+        {visualization.description && (
+          <div className="text-[10px] text-gray-400 truncate">{visualization.description}</div>
+        )}
+      </div>
+      <div className="text-[10px] text-gray-400 uppercase">{visualization.visualization_type}</div>
     </div>
   )
 }
@@ -1821,68 +1987,6 @@ function PageSettingsPanel({
               className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
             />
           </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Visualization Picker Modal
-function VisualizationPickerModal({
-  visualizations,
-  onSelect,
-  onClose,
-  elementType,
-}: {
-  visualizations: Visualization[]
-  onSelect: (visualization: Visualization) => void
-  onClose: () => void
-  elementType: 'chart' | 'table' | null
-}) {
-  const [search, setSearch] = useState('')
-  const filtered = visualizations.filter((v) =>
-    v.name.toLowerCase().includes(search.toLowerCase())
-  )
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Select {elementType === 'table' ? 'Table Data' : 'Chart'}
-            </h2>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
-          <input
-            type="text"
-            placeholder="Search visualizations..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-        <div className="flex-1 overflow-auto p-3">
-          {filtered.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No visualizations found</p>
-          ) : (
-            <div className="space-y-2">
-              {filtered.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => onSelect(v)}
-                  className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-colors"
-                >
-                  <div className="font-medium text-gray-900">{v.name}</div>
-                  {v.description && (
-                    <div className="text-sm text-gray-500 mt-0.5">{v.description}</div>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
