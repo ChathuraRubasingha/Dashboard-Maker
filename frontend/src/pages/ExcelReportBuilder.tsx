@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Save,
   ArrowLeft,
   Share2,
   Upload,
@@ -12,7 +11,6 @@ import {
   Clock,
   Download,
   Link,
-  Trash2,
   RefreshCw,
   Table,
   Hash,

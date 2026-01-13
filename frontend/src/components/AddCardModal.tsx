@@ -42,7 +42,7 @@ export default function AddCardModal({
   // Fetch local visualizations
   const { data: visualizations = [], isLoading: isLoadingVisualizations } = useQuery({
     queryKey: ['visualizations'],
-    queryFn: visualizationService.list,
+    queryFn: () => visualizationService.list(),
     enabled: isOpen && activeTab === 'visualizations',
   })
 

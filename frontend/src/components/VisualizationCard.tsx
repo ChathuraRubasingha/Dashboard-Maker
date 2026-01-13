@@ -125,8 +125,8 @@ export default function VisualizationCard({
   }
 
   // Get customization from visualization
-  const customization = visualization?.customization || {}
-  const customColors = customization.custom_colors || [
+  const customization = visualization?.customization
+  const customColors = customization?.custom_colors || [
     '#509EE3', '#88BF4D', '#A989C5', '#EF8C8C',
     '#F9D45C', '#F2A86F', '#98D9D9', '#7172AD'
   ]
@@ -170,11 +170,11 @@ export default function VisualizationCard({
                 type={viewType}
                 data={queryResult}
                 colors={customColors}
-                showLegend={customization.show_legend !== false}
-                showGrid={customization.show_grid !== false}
-                xAxisLabel={customization.x_axis_label || undefined}
-                yAxisLabel={customization.y_axis_label || undefined}
-                customLabels={customization.custom_labels || {}}
+                showLegend={customization?.show_legend !== false}
+                showGrid={customization?.show_grid !== false}
+                xAxisLabel={customization?.x_axis_label || undefined}
+                yAxisLabel={customization?.y_axis_label || undefined}
+                customLabels={customization?.custom_labels || {}}
               />
             )}
           </div>
@@ -315,11 +315,11 @@ export default function VisualizationCard({
               type={viewType}
               data={queryResult}
               colors={customColors}
-              showLegend={customization.show_legend !== false}
-              showGrid={customization.show_grid !== false}
-              xAxisLabel={customization.x_axis_label || undefined}
-              yAxisLabel={customization.y_axis_label || undefined}
-              customLabels={customization.custom_labels || {}}
+              showLegend={customization?.show_legend !== false}
+              showGrid={customization?.show_grid !== false}
+              xAxisLabel={customization?.x_axis_label || undefined}
+              yAxisLabel={customization?.y_axis_label || undefined}
+              customLabels={customization?.custom_labels || {}}
             />
           </div>
         ) : (

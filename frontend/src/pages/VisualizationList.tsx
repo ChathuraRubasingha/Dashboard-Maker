@@ -24,7 +24,6 @@ import {
   Clock,
   ArchiveRestore,
   Edit3,
-  Copy,
   Layers,
 } from 'lucide-react'
 import clsx from 'clsx'

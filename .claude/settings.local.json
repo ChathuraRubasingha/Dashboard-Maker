@@ -7,7 +7,15 @@
       "Bash(venvScriptspython -m alembic upgrade head)",
       "Bash(./venv/Scripts/python:*)",
       "Bash(./venv/Scripts/alembic upgrade:*)",
-      "Bash(./venv/Scripts/pip:*)"
+      "Bash(./venv/Scripts/pip:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose exec:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(python:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }

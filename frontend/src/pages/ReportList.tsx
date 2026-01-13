@@ -20,8 +20,6 @@ import {
   Filter,
   Grid3X3,
   List,
-  Download,
-  Edit3,
   ChevronDown,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -191,7 +189,7 @@ export default function ReportList() {
                     </button>
                     <button
                       onClick={() => {
-                        navigate('/excel-reports/new')
+                        navigate('/excel-templates')
                         setShowNewMenu(false)
                       }}
                       className="flex items-start gap-3 w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors"
@@ -201,7 +199,7 @@ export default function ReportList() {
                       </div>
                       <div>
                         <div className="font-medium text-gray-900">Excel Report</div>
-                        <div className="text-xs text-gray-500">Template-based Excel export</div>
+                        <div className="text-xs text-gray-500">Select template & map data</div>
                       </div>
                     </button>
                   </div>
@@ -506,7 +504,7 @@ export default function ReportList() {
                 </p>
                 {!searchQuery && (
                   <button
-                    onClick={() => navigate('/excel-reports/new')}
+                    onClick={() => navigate('/excel-templates')}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors"
                   >
                     <Plus className="w-5 h-5" />

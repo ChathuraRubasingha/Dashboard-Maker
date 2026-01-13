@@ -15,7 +15,7 @@ export interface SaveVisualizationData {
   visualization_type: VisualizationType
 }
 
-const CHART_TYPE_OPTIONS: { value: VisualizationType; label: string; icon: JSX.Element }[] = [
+const CHART_TYPE_OPTIONS: { value: VisualizationType; label: string; icon: React.ReactElement }[] = [
   {
     value: 'table',
     label: 'Table',

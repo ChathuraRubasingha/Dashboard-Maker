@@ -688,3 +688,140 @@ export interface TemplateUploadResponse {
   filename: string
   placeholders: ExcelPlaceholder[]
 }
+
+// ============ New Excel Template Types ============
+
+export interface CellStyle {
+  font?: {
+    name?: string
+    size?: number
+    bold?: boolean
+    italic?: boolean
+    color?: string
+  }
+  fill?: {
+    color?: string
+  }
+  border?: {
+    top?: { style?: string; color?: string }
+    bottom?: { style?: string; color?: string }
+    left?: { style?: string; color?: string }
+    right?: { style?: string; color?: string }
+  }
+  alignment?: {
+    horizontal?: 'left' | 'center' | 'right'
+    vertical?: 'top' | 'middle' | 'bottom'
+    wrapText?: boolean
+  }
+  numberFormat?: string
+}
+
+export interface Cell {
+  value?: string | number | null
+  formula?: string
+  style?: CellStyle
+}
+
+export interface Sheet {
+  name: string
+  cells: Record<string, Cell>  // "A1" -> Cell
+  merges: string[]             // ["A1:C1", "B5:B10"]
+  columnWidths: Record<number, number>
+  rowHeights: Record<number, number>
+}
+
+export interface TemplateStructure {
+  sheets: Sheet[]
+}
+
+export interface ExcelTemplate {
+  id: number
+  name: string
+  description: string | null
+  file_name: string | null
+  structure: TemplateStructure
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ExcelTemplateListItem {
+  id: number
+  name: string
+  description: string | null
+  file_name: string | null
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ExcelTemplateCreate {
+  name: string
+  description?: string
+}
+
+export interface ExcelTemplateUpdate {
+  name?: string
+  description?: string
+  is_archived?: boolean
+}
+
+export interface ColumnMapping {
+  source_column: string
+  target_column: string
+  header_label?: string  // Display name for Excel header (from custom_labels)
+  format?: string
+}
+
+export interface ExcelDataSourceMapping {
+  id: string
+  visualization_id: number
+  sheet_name: string
+  start_cell: string
+  columns: ColumnMapping[]
+  include_header: boolean
+  auto_expand: boolean
+}
+
+export interface ExcelReport {
+  id: number
+  name: string
+  description: string | null
+  template_id: number | null
+  structure: TemplateStructure | null
+  sheet_data: Record<string, any>
+  data_sources: ExcelDataSourceMapping[]
+  is_public: boolean
+  share_token: string | null
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ExcelReportListItem {
+  id: number
+  name: string
+  description: string | null
+  template_id: number | null
+  template_name: string | null
+  is_public: boolean
+  is_archived: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ExcelReportCreate {
+  name: string
+  description?: string
+  template_id: number
+  data_sources?: ExcelDataSourceMapping[]
+}
+
+export interface ExcelReportUpdate {
+  name?: string
+  description?: string
+  sheet_data?: Record<string, any>
+  data_sources?: ExcelDataSourceMapping[]
+  is_public?: boolean
+  is_archived?: boolean
+}

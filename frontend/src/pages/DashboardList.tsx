@@ -16,7 +16,6 @@ import {
   Lock,
   X,
   Filter,
-  SortAsc,
   Grid3X3,
   List,
 } from 'lucide-react'

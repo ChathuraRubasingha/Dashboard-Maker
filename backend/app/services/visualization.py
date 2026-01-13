@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -10,6 +10,7 @@ from app.schemas.visualization import (
     VisualizationCustomizationCreate,
     VisualizationCustomizationUpdate,
 )
+from app.services.metabase import MetabaseService
 
 
 class VisualizationService:
@@ -147,3 +148,78 @@ class VisualizationService:
         await self.db.delete(customization)
         await self.db.commit()
         return True
+
+    # ==================== Query Execution ====================
+
+    async def execute_visualization(self, visualization_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Execute a visualization's query and return the results.
+
+        Supports three methods:
+        1. Execute via Metabase question ID (if linked)
+        2. Execute stored MBQL query directly
+        3. Execute stored native SQL query directly
+
+        Returns:
+            Dict with 'rows' key containing list of row dicts, or None if failed
+        """
+        visualization = await self.get_visualization(visualization_id)
+        if not visualization:
+            return None
+
+        try:
+            metabase = MetabaseService()
+            result = None
+
+            # Method 1: Execute via Metabase question ID (if linked)
+            if visualization.metabase_question_id:
+                result = await metabase.execute_question(visualization.metabase_question_id)
+
+            # Method 2: Execute stored MBQL query directly (same as Widget Report)
+            elif visualization.query_type == "mbql" and visualization.mbql_query and visualization.database_id:
+                stored_query = visualization.mbql_query
+
+                # Handle different MBQL query formats
+                if isinstance(stored_query, dict):
+                    database_id = stored_query.get("database", visualization.database_id)
+                    query_data = stored_query.get("query", stored_query)
+                else:
+                    database_id = visualization.database_id
+                    query_data = stored_query
+
+                result = await metabase.execute_mbql_query(database_id, query_data)
+
+            # Method 3: Execute stored native SQL query directly
+            elif visualization.query_type == "native" and visualization.native_query and visualization.database_id:
+                result = await metabase.execute_native_query(
+                    visualization.database_id,
+                    visualization.native_query
+                )
+
+            # No valid data source
+            else:
+                print(f"Visualization {visualization_id} has no valid data source")
+                return None
+
+            # Metabase returns data in format: { "data": { "rows": [...], "cols": [...] } }
+            if not result or "data" not in result:
+                return None
+
+            data = result["data"]
+            cols = data.get("cols", [])
+            rows = data.get("rows", [])
+
+            # Convert rows from arrays to dicts using column names
+            column_names = [col.get("name", f"col_{i}") for i, col in enumerate(cols)]
+            row_dicts = []
+            for row in rows:
+                row_dict = {}
+                for i, value in enumerate(row):
+                    if i < len(column_names):
+                        row_dict[column_names[i]] = value
+                row_dicts.append(row_dict)
+
+            return {"rows": row_dicts}
+        except Exception as e:
+            print(f"Error executing visualization {visualization_id}: {e}")
+            return None

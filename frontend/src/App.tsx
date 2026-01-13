@@ -8,7 +8,8 @@ import VisualizationViewer from './pages/VisualizationViewer'
 import VisualizationEditor from './pages/VisualizationEditor'
 import ReportList from './pages/ReportList'
 import ReportDesigner from './pages/ReportDesigner'
-import ExcelReportBuilder from './pages/ExcelReportBuilder'
+import ExcelTemplates from './pages/ExcelTemplates'
+import ExcelReportEditor from './pages/ExcelReportEditor'
 import DatabaseManager from './pages/DatabaseManager'
 import { QueryBuilder } from './components/QueryBuilder'
 
@@ -27,8 +28,9 @@ function App() {
         <Route path="reports" element={<ReportList />} />
         <Route path="reports/new" element={<ReportDesigner />} />
         <Route path="reports/:id" element={<ReportDesigner />} />
-        <Route path="excel-reports/new" element={<ExcelReportBuilder />} />
-        <Route path="excel-reports/:id" element={<ExcelReportBuilder />} />
+        <Route path="excel-templates" element={<ExcelTemplates />} />
+        <Route path="excel-reports/new" element={<ExcelReportEditor />} />
+        <Route path="excel-reports/:reportId" element={<ExcelReportEditor />} />
         <Route path="query-builder" element={<QueryBuilder />} />
         <Route path="databases" element={<DatabaseManager />} />
       </Route>

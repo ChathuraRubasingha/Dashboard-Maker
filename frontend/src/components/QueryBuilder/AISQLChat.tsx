@@ -107,7 +107,7 @@ export default function AISQLChat({
       const result = await metabaseService.executeNativeQuery(databaseId!, sql)
       return result as QueryResult
     },
-    onSuccess: (data: QueryResult, _variables, context) => {
+    onSuccess: (data: QueryResult) => {
       // Add result message
       const resultMessage: Message = {
         id: crypto.randomUUID(),
