@@ -34,12 +34,21 @@ class MetabaseService:
         endpoint: str,
         data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
+        timeout: float = 30.0,
     ) -> Dict[str, Any]:
-        """Make an HTTP request to Metabase API."""
+        """Make an HTTP request to Metabase API.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint path
+            data: JSON body data
+            params: Query parameters
+            timeout: Request timeout in seconds (default 30s, use higher for large queries)
+        """
         url = f"{self.base_url}{endpoint}"
         headers = self._get_headers()
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.request(
                 method=method,
                 url=url,
@@ -103,27 +112,58 @@ class MetabaseService:
 
     # ==================== Query Execution ====================
 
-    async def execute_query(self, query: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a query (native SQL or MBQL)."""
-        return await self._request("POST", "/api/dataset", data=query)
+    async def execute_query(
+        self,
+        query: Dict[str, Any],
+        timeout: float = 30.0
+    ) -> Dict[str, Any]:
+        """Execute a query (native SQL or MBQL).
 
-    async def execute_native_query(self, database_id: int, sql: str) -> Dict[str, Any]:
-        """Execute a native SQL query."""
+        Args:
+            query: The query object (MBQL or native)
+            timeout: Request timeout in seconds (default 30s, use 300s for large exports)
+        """
+        return await self._request("POST", "/api/dataset", data=query, timeout=timeout)
+
+    async def execute_native_query(
+        self,
+        database_id: int,
+        sql: str,
+        timeout: float = 30.0
+    ) -> Dict[str, Any]:
+        """Execute a native SQL query.
+
+        Args:
+            database_id: Database ID to execute against
+            sql: SQL query string
+            timeout: Request timeout in seconds (default 30s, use 300s for large exports)
+        """
         query = {
             "database": database_id,
             "type": "native",
             "native": {"query": sql},
         }
-        return await self.execute_query(query)
+        return await self.execute_query(query, timeout=timeout)
 
-    async def execute_mbql_query(self, database_id: int, mbql: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute an MBQL query."""
+    async def execute_mbql_query(
+        self,
+        database_id: int,
+        mbql: Dict[str, Any],
+        timeout: float = 30.0
+    ) -> Dict[str, Any]:
+        """Execute an MBQL query.
+
+        Args:
+            database_id: Database ID to execute against
+            mbql: MBQL query object
+            timeout: Request timeout in seconds (default 30s, use 300s for large exports)
+        """
         query = {
             "database": database_id,
             "type": "query",
             "query": mbql,
         }
-        return await self.execute_query(query)
+        return await self.execute_query(query, timeout=timeout)
 
     # ==================== Questions (Visualizations) ====================
 

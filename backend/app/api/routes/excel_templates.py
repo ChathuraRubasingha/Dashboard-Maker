@@ -320,7 +320,12 @@ async def download_report(
     db: AsyncSession = Depends(get_db),
     _: str = Depends(verify_api_key)
 ):
-    """Download Excel report with data filled in."""
+    """Download Excel report with data filled in.
+
+    This endpoint fetches ALL rows from data sources by removing any LIMIT
+    clauses from the underlying queries. This ensures exports contain
+    complete data, not just preview rows.
+    """
     import logging
     logger = logging.getLogger(__name__)
 
@@ -333,6 +338,7 @@ async def download_report(
     logger.info(f"Data sources: {report.data_sources}")
 
     # Get visualization data for all data sources
+    # Use remove_limit=True to get ALL rows, not just preview rows
     visualization_data: Dict[int, List[Dict[str, Any]]] = {}
     if report.data_sources:
         viz_service = VisualizationService(db)
@@ -340,8 +346,9 @@ async def download_report(
             viz_id = ds.get("visualization_id")
             if viz_id:
                 try:
-                    logger.info(f"Fetching data for visualization {viz_id}")
-                    data = await viz_service.execute_visualization(viz_id)
+                    logger.info(f"Fetching ALL data for visualization {viz_id} (no limit)")
+                    # remove_limit=True removes LIMIT clause to get all rows for export
+                    data = await viz_service.execute_visualization(viz_id, remove_limit=True)
                     if data and "rows" in data:
                         visualization_data[viz_id] = data["rows"]
                         logger.info(f"Got {len(data['rows'])} rows for viz {viz_id}")

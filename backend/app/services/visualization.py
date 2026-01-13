@@ -151,7 +151,41 @@ class VisualizationService:
 
     # ==================== Query Execution ====================
 
-    async def execute_visualization(self, visualization_id: int) -> Optional[Dict[str, Any]]:
+    def _remove_limit_from_query(self, query: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Remove limit from MBQL query to get all rows for export.
+        Creates a deep copy to avoid modifying the original.
+        """
+        import copy
+        query_copy = copy.deepcopy(query)
+
+        # Remove top-level limit
+        if "limit" in query_copy:
+            del query_copy["limit"]
+
+        # Remove limit from nested query object
+        if "query" in query_copy and isinstance(query_copy["query"], dict):
+            if "limit" in query_copy["query"]:
+                del query_copy["query"]["limit"]
+
+        return query_copy
+
+    def _remove_limit_from_sql(self, sql: str) -> str:
+        """
+        Remove LIMIT clause from SQL query for export.
+        Handles common SQL LIMIT patterns.
+        """
+        import re
+        # Remove LIMIT clause (handles LIMIT n and LIMIT n OFFSET m)
+        # Case-insensitive, handles various spacing
+        pattern = r'\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$'
+        return re.sub(pattern, '', sql, flags=re.IGNORECASE)
+
+    async def execute_visualization(
+        self,
+        visualization_id: int,
+        remove_limit: bool = False
+    ) -> Optional[Dict[str, Any]]:
         """
         Execute a visualization's query and return the results.
 
@@ -159,6 +193,10 @@ class VisualizationService:
         1. Execute via Metabase question ID (if linked)
         2. Execute stored MBQL query directly
         3. Execute stored native SQL query directly
+
+        Args:
+            visualization_id: ID of the visualization to execute
+            remove_limit: If True, removes LIMIT clause from query to get all rows (for exports)
 
         Returns:
             Dict with 'rows' key containing list of row dicts, or None if failed
@@ -187,13 +225,28 @@ class VisualizationService:
                     database_id = visualization.database_id
                     query_data = stored_query
 
-                result = await metabase.execute_mbql_query(database_id, query_data)
+                # Remove limit for export if requested
+                if remove_limit and isinstance(query_data, dict):
+                    query_data = self._remove_limit_from_query(query_data)
+
+                # Use longer timeout for exports (5 minutes vs 30 seconds)
+                timeout = 300.0 if remove_limit else 30.0
+                result = await metabase.execute_mbql_query(database_id, query_data, timeout=timeout)
 
             # Method 3: Execute stored native SQL query directly
             elif visualization.query_type == "native" and visualization.native_query and visualization.database_id:
+                sql = visualization.native_query
+
+                # Remove LIMIT clause for export if requested
+                if remove_limit:
+                    sql = self._remove_limit_from_sql(sql)
+
+                # Use longer timeout for exports (5 minutes vs 30 seconds)
+                timeout = 300.0 if remove_limit else 30.0
                 result = await metabase.execute_native_query(
                     visualization.database_id,
-                    visualization.native_query
+                    sql,
+                    timeout=timeout
                 )
 
             # No valid data source
