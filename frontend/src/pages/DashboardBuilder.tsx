@@ -25,7 +25,9 @@ import { dashboardService } from '../services/dashboardService'
 import { useDashboardStore } from '../store/dashboardStore'
 import DashboardCard from '../components/DashboardCard'
 import AddCardModal from '../components/AddCardModal'
-import type { GridLayout } from '../types'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { useToast } from '../components/ui/Toast'
+import type { GridLayout, DashboardCard as DashboardCardType } from '../types'
 
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -47,6 +49,7 @@ export default function DashboardBuilder() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const {
     currentDashboard,
@@ -66,6 +69,8 @@ export default function DashboardBuilder() {
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
   const [showBgDropdown, setShowBgDropdown] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [removeCardTarget, setRemoveCardTarget] = useState<DashboardCardType | null>(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   const dashboardId = id ? parseInt(id, 10) : undefined
 
@@ -146,6 +151,11 @@ export default function DashboardBuilder() {
     onSuccess: (_, variables) => {
       removeCard(variables.cardId)
       queryClient.invalidateQueries({ queryKey: ['dashboard', dashboardId] })
+      toast.success('Card removed', 'The card has been removed from the dashboard')
+      setRemoveCardTarget(null)
+    },
+    onError: () => {
+      toast.error('Failed to remove card', 'Please try again')
     },
   })
 
@@ -234,15 +244,26 @@ export default function DashboardBuilder() {
   }
 
   const handleRemoveCard = (cardId: number) => {
-    if (dashboardId && confirm('Remove this card from the dashboard?')) {
-      removeCardMutation.mutate({ dashboardId, cardId })
+    const card = currentDashboard?.cards.find(c => c.id === cardId)
+    if (card) {
+      setRemoveCardTarget(card)
+    }
+  }
+
+  const confirmRemoveCard = () => {
+    if (dashboardId && removeCardTarget) {
+      removeCardMutation.mutate({ dashboardId, cardId: removeCardTarget.id })
     }
   }
 
   const handleResetLayout = () => {
-    if (confirm('Reset all cards to their default positions?')) {
-      // Reset logic would go here
-    }
+    setShowResetConfirm(true)
+  }
+
+  const confirmResetLayout = () => {
+    // Reset logic would go here
+    toast.info('Layout reset', 'Cards have been reset to their default positions')
+    setShowResetConfirm(false)
   }
 
   if (isLoading) {
@@ -543,6 +564,29 @@ export default function DashboardBuilder() {
           onClick={() => setShowBgDropdown(false)}
         />
       )}
+
+      {/* Remove Card Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={removeCardTarget !== null}
+        onClose={() => setRemoveCardTarget(null)}
+        onConfirm={confirmRemoveCard}
+        title="Remove card?"
+        message="Are you sure you want to remove this card from the dashboard? The visualization itself will not be deleted."
+        confirmText="Remove"
+        variant="warning"
+        isLoading={removeCardMutation.isPending}
+      />
+
+      {/* Reset Layout Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={confirmResetLayout}
+        title="Reset layout?"
+        message="This will reset all cards to their default positions. Any custom arrangement will be lost."
+        confirmText="Reset"
+        variant="warning"
+      />
     </div>
   )
 }

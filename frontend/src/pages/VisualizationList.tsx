@@ -28,6 +28,8 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { visualizationService } from '../services/visualizationService'
+import { DeleteConfirmDialog } from '../components/ui/ConfirmDialog'
+import { useToast } from '../components/ui/Toast'
 import type { Visualization, VisualizationType } from '../types'
 
 const VISUALIZATION_ICONS: Record<VisualizationType, React.ReactNode> = {
@@ -70,6 +72,7 @@ type TypeFilter = 'all' | VisualizationType
 export default function VisualizationList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [showArchived, setShowArchived] = useState(false)
@@ -80,6 +83,10 @@ export default function VisualizationList() {
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [showTypeDropdown, setShowTypeDropdown] = useState(false)
 
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<Visualization | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const { data: visualizations = [], isLoading } = useQuery({
     queryKey: ['visualizations', showArchived],
     queryFn: () => visualizationService.list(showArchived),
@@ -89,16 +96,43 @@ export default function VisualizationList() {
     mutationFn: visualizationService.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['visualizations'] })
+      toast.success('Visualization deleted', 'The visualization has been permanently removed')
+      setDeleteTarget(null)
+      setIsDeleting(false)
+    },
+    onError: () => {
+      toast.error('Failed to delete visualization', 'Please try again')
+      setIsDeleting(false)
     },
   })
 
   const archiveMutation = useMutation({
     mutationFn: ({ id, archived }: { id: number; archived: boolean }) =>
       visualizationService.update(id, { is_archived: archived }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['visualizations'] })
+      toast.success(
+        variables.archived ? 'Visualization archived' : 'Visualization restored',
+        variables.archived ? 'The visualization has been archived' : 'The visualization has been restored'
+      )
+    },
+    onError: () => {
+      toast.error('Operation failed', 'Please try again')
     },
   })
+
+  // Delete confirmation handlers
+  const handleDelete = (visualization: Visualization) => {
+    setDeleteTarget(visualization)
+    setMenuOpenId(null)
+  }
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      setIsDeleting(true)
+      deleteMutation.mutate(deleteTarget.id)
+    }
+  }
 
   // Filter and sort visualizations
   const filteredVisualizations = visualizations
@@ -414,12 +448,7 @@ export default function VisualizationList() {
                       visualization={visualization}
                       isMenuOpen={menuOpenId === visualization.id}
                       onMenuToggle={() => setMenuOpenId(menuOpenId === visualization.id ? null : visualization.id)}
-                      onDelete={() => {
-                        if (confirm('Are you sure you want to delete this visualization?')) {
-                          deleteMutation.mutate(visualization.id)
-                        }
-                        setMenuOpenId(null)
-                      }}
+                      onDelete={() => handleDelete(visualization)}
                       onArchive={() => {
                         archiveMutation.mutate({ id: visualization.id, archived: !visualization.is_archived })
                         setMenuOpenId(null)
@@ -436,12 +465,7 @@ export default function VisualizationList() {
                       isLast={index === activeVisualizations.length - 1}
                       isMenuOpen={menuOpenId === visualization.id}
                       onMenuToggle={() => setMenuOpenId(menuOpenId === visualization.id ? null : visualization.id)}
-                      onDelete={() => {
-                        if (confirm('Are you sure you want to delete this visualization?')) {
-                          deleteMutation.mutate(visualization.id)
-                        }
-                        setMenuOpenId(null)
-                      }}
+                      onDelete={() => handleDelete(visualization)}
                       onArchive={() => {
                         archiveMutation.mutate({ id: visualization.id, archived: !visualization.is_archived })
                         setMenuOpenId(null)
@@ -472,12 +496,7 @@ export default function VisualizationList() {
                       visualization={visualization}
                       isMenuOpen={menuOpenId === visualization.id}
                       onMenuToggle={() => setMenuOpenId(menuOpenId === visualization.id ? null : visualization.id)}
-                      onDelete={() => {
-                        if (confirm('Are you sure you want to delete this visualization?')) {
-                          deleteMutation.mutate(visualization.id)
-                        }
-                        setMenuOpenId(null)
-                      }}
+                      onDelete={() => handleDelete(visualization)}
                       onArchive={() => {
                         archiveMutation.mutate({ id: visualization.id, archived: !visualization.is_archived })
                         setMenuOpenId(null)
@@ -494,12 +513,7 @@ export default function VisualizationList() {
                       isLast={index === archivedVisualizations.length - 1}
                       isMenuOpen={menuOpenId === visualization.id}
                       onMenuToggle={() => setMenuOpenId(menuOpenId === visualization.id ? null : visualization.id)}
-                      onDelete={() => {
-                        if (confirm('Are you sure you want to delete this visualization?')) {
-                          deleteMutation.mutate(visualization.id)
-                        }
-                        setMenuOpenId(null)
-                      }}
+                      onDelete={() => handleDelete(visualization)}
                       onArchive={() => {
                         archiveMutation.mutate({ id: visualization.id, archived: !visualization.is_archived })
                         setMenuOpenId(null)
@@ -512,6 +526,16 @@ export default function VisualizationList() {
           )}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        itemName={deleteTarget?.name}
+        itemType="visualization"
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

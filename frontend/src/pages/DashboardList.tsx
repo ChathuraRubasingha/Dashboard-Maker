@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { dashboardService } from '../services/dashboardService'
+import { DeleteConfirmDialog } from '../components/ui/ConfirmDialog'
+import { useToast } from '../components/ui/Toast'
 import type { Dashboard } from '../types'
 
 type ViewMode = 'grid' | 'list'
@@ -29,6 +31,7 @@ type SortOption = 'updated' | 'created' | 'name'
 export default function DashboardList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [showArchived, setShowArchived] = useState(false)
@@ -40,6 +43,10 @@ export default function DashboardList() {
   const [sortBy, setSortBy] = useState<SortOption>('updated')
   const [showFilters, setShowFilters] = useState(false)
 
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<Dashboard | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const { data: dashboards = [], isLoading } = useQuery({
     queryKey: ['dashboards', showArchived],
     queryFn: () => dashboardService.list(showArchived),
@@ -49,7 +56,11 @@ export default function DashboardList() {
     mutationFn: dashboardService.create,
     onSuccess: (dashboard) => {
       queryClient.invalidateQueries({ queryKey: ['dashboards'] })
+      toast.success('Dashboard created', 'Your new dashboard is ready')
       navigate(`/dashboards/${dashboard.id}`)
+    },
+    onError: () => {
+      toast.error('Failed to create dashboard', 'Please try again')
     },
   })
 
@@ -57,16 +68,42 @@ export default function DashboardList() {
     mutationFn: dashboardService.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboards'] })
+      toast.success('Dashboard deleted', 'The dashboard has been permanently removed')
+      setDeleteTarget(null)
+      setIsDeleting(false)
+    },
+    onError: () => {
+      toast.error('Failed to delete dashboard', 'Please try again')
+      setIsDeleting(false)
     },
   })
 
   const archiveMutation = useMutation({
     mutationFn: ({ id, archived }: { id: number; archived: boolean }) =>
       dashboardService.update(id, { is_archived: archived }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['dashboards'] })
+      toast.success(
+        variables.archived ? 'Dashboard archived' : 'Dashboard restored',
+        variables.archived ? 'Moved to archived dashboards' : 'Dashboard is now active'
+      )
+    },
+    onError: () => {
+      toast.error('Failed to update dashboard', 'Please try again')
     },
   })
+
+  const handleDelete = (dashboard: Dashboard) => {
+    setDeleteTarget(dashboard)
+    setMenuOpenId(null)
+  }
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      setIsDeleting(true)
+      deleteMutation.mutate(deleteTarget.id)
+    }
+  }
 
   // Filter and sort dashboards
   const filteredDashboards = dashboards
@@ -101,7 +138,7 @@ export default function DashboardList() {
   return (
     <div className="min-h-screen">
       {/* Hero Header */}
-      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 -mx-4 -mt-4 lg:-mx-6 lg:-mt-6 px-4 lg:px-6 pt-8 pb-12 mb-8">
+      <div className="bg-gradient-to-br from-[#007499] via-[#01A2BF] to-[#01BBC8] -mx-4 -mt-4 lg:-mx-6 lg:-mt-6 px-4 lg:px-6 pt-8 pb-12 mb-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-start justify-between">
             <div>
@@ -111,13 +148,13 @@ export default function DashboardList() {
                 </div>
                 <h1 className="text-3xl font-bold text-white">Dashboards</h1>
               </div>
-              <p className="text-blue-100 max-w-xl">
+              <p className="text-white/80 max-w-xl">
                 Create interactive dashboards to monitor your key metrics and KPIs in real-time
               </p>
             </div>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-blue-700 font-semibold rounded-xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-[#007499] font-semibold rounded-xl hover:bg-teal-50 transition-all shadow-lg hover:shadow-xl"
             >
               <Plus className="w-5 h-5" />
               New Dashboard
@@ -128,15 +165,15 @@ export default function DashboardList() {
           <div className="grid grid-cols-3 gap-4 mt-8 max-w-lg">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3">
               <div className="text-2xl font-bold text-white">{dashboards.length}</div>
-              <div className="text-blue-200 text-sm">Total</div>
+              <div className="text-white/70 text-sm">Total</div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3">
               <div className="text-2xl font-bold text-white">{dashboards.filter(d => d.is_public).length}</div>
-              <div className="text-blue-200 text-sm">Public</div>
+              <div className="text-white/70 text-sm">Public</div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3">
               <div className="text-2xl font-bold text-white">{dashboards.filter(d => d.is_archived).length}</div>
-              <div className="text-blue-200 text-sm">Archived</div>
+              <div className="text-white/70 text-sm">Archived</div>
             </div>
           </div>
         </div>
@@ -154,7 +191,7 @@ export default function DashboardList() {
                 placeholder="Search dashboards by name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+                className="w-full pl-12 pr-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01BBC8] text-gray-900 placeholder-gray-500"
               />
               {searchQuery && (
                 <button
@@ -172,7 +209,7 @@ export default function DashboardList() {
               className={clsx(
                 'flex items-center gap-2 px-4 py-3 rounded-xl border transition-all',
                 showFilters
-                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  ? 'bg-teal-50 border-[#01BBC8]/30 text-[#007499]'
                   : 'bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100'
               )}
             >
@@ -184,7 +221,7 @@ export default function DashboardList() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#01BBC8] cursor-pointer"
             >
               <option value="updated">Recently Updated</option>
               <option value="created">Recently Created</option>
@@ -197,7 +234,7 @@ export default function DashboardList() {
                 onClick={() => setViewMode('grid')}
                 className={clsx(
                   'p-2 rounded-lg transition-all',
-                  viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                  viewMode === 'grid' ? 'bg-white shadow-sm text-[#01BBC8]' : 'text-gray-500 hover:text-gray-700'
                 )}
               >
                 <Grid3X3 className="w-5 h-5" />
@@ -206,7 +243,7 @@ export default function DashboardList() {
                 onClick={() => setViewMode('list')}
                 className={clsx(
                   'p-2 rounded-lg transition-all',
-                  viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                  viewMode === 'list' ? 'bg-white shadow-sm text-[#01BBC8]' : 'text-gray-500 hover:text-gray-700'
                 )}
               >
                 <List className="w-5 h-5" />
@@ -222,7 +259,7 @@ export default function DashboardList() {
                   type="checkbox"
                   checked={showArchived}
                   onChange={(e) => setShowArchived(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="w-4 h-4 rounded border-gray-300 text-[#01BBC8] focus:ring-[#01BBC8]"
                 />
                 Show archived dashboards
               </label>
@@ -240,13 +277,13 @@ export default function DashboardList() {
         {/* Dashboard Grid/List */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-3 border-[#01BBC8] border-t-transparent rounded-full animate-spin" />
             <p className="mt-4 text-gray-500">Loading dashboards...</p>
           </div>
         ) : filteredDashboards.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
-            <div className="w-20 h-20 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <LayoutDashboard className="w-10 h-10 text-blue-600" />
+            <div className="w-20 h-20 bg-linear-to-br from-[#01BBC8]/20 to-[#007499]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <LayoutDashboard className="w-10 h-10 text-[#01BBC8]" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               {searchQuery ? 'No dashboards found' : 'No dashboards yet'}
@@ -259,7 +296,7 @@ export default function DashboardList() {
             {!searchQuery && (
               <button
                 onClick={() => setIsCreating(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#01BBC8] to-[#007499] text-white font-semibold rounded-xl hover:from-[#01A2BF] hover:to-[#006080] transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 Create Your First Dashboard
@@ -276,7 +313,7 @@ export default function DashboardList() {
                 </h2>
                 <div className={clsx(
                   viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'
+                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
                     : 'space-y-3'
                 )}>
                   {activeDashboards.map((dashboard) => (
@@ -286,12 +323,7 @@ export default function DashboardList() {
                       viewMode={viewMode}
                       isMenuOpen={menuOpenId === dashboard.id}
                       onMenuToggle={() => setMenuOpenId(menuOpenId === dashboard.id ? null : dashboard.id)}
-                      onDelete={() => {
-                        if (confirm('Are you sure you want to delete this dashboard?')) {
-                          deleteMutation.mutate(dashboard.id)
-                        }
-                        setMenuOpenId(null)
-                      }}
+                      onDelete={() => handleDelete(dashboard)}
                       onArchive={() => {
                         archiveMutation.mutate({ id: dashboard.id, archived: !dashboard.is_archived })
                         setMenuOpenId(null)
@@ -310,7 +342,7 @@ export default function DashboardList() {
                 </h2>
                 <div className={clsx(
                   viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'
+                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
                     : 'space-y-3'
                 )}>
                   {archivedDashboards.map((dashboard) => (
@@ -320,12 +352,7 @@ export default function DashboardList() {
                       viewMode={viewMode}
                       isMenuOpen={menuOpenId === dashboard.id}
                       onMenuToggle={() => setMenuOpenId(menuOpenId === dashboard.id ? null : dashboard.id)}
-                      onDelete={() => {
-                        if (confirm('Are you sure you want to delete this dashboard?')) {
-                          deleteMutation.mutate(dashboard.id)
-                        }
-                        setMenuOpenId(null)
-                      }}
+                      onDelete={() => handleDelete(dashboard)}
                       onArchive={() => {
                         archiveMutation.mutate({ id: dashboard.id, archived: !dashboard.is_archived })
                         setMenuOpenId(null)
@@ -345,14 +372,14 @@ export default function DashboardList() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCreating(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5">
+            <div className="bg-gradient-to-r from-[#01BBC8] via-[#01A2BF] to-[#007499] px-6 py-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-lg">
                   <LayoutDashboard className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-white">Create New Dashboard</h2>
-                  <p className="text-blue-100 text-sm">Set up your dashboard details</p>
+                  <p className="text-white/80 text-sm">Set up your dashboard details</p>
                 </div>
               </div>
             </div>
@@ -369,7 +396,7 @@ export default function DashboardList() {
                   value={newDashboardName}
                   onChange={(e) => setNewDashboardName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01BBC8] focus:border-transparent"
                   autoFocus
                 />
               </div>
@@ -382,7 +409,7 @@ export default function DashboardList() {
                   value={newDashboardDesc}
                   onChange={(e) => setNewDashboardDesc(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01BBC8] focus:border-transparent resize-none"
                 />
               </div>
             </div>
@@ -402,7 +429,7 @@ export default function DashboardList() {
               <button
                 onClick={handleCreate}
                 disabled={!newDashboardName.trim() || createMutation.isPending}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#01BBC8] to-[#007499] hover:from-[#01A2BF] hover:to-[#006080] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {createMutation.isPending ? 'Creating...' : 'Create Dashboard'}
               </button>
@@ -410,6 +437,16 @@ export default function DashboardList() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        itemName={deleteTarget?.name}
+        itemType="dashboard"
+        isLoading={isDeleting}
+      />
     </div>
   )
 }
@@ -436,19 +473,19 @@ function DashboardCard({
       <Link
         to={`/dashboards/${dashboard.id}`}
         className={clsx(
-          'flex items-center gap-4 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md p-4 transition-all group',
+          'flex items-center gap-4 bg-white rounded-xl border border-gray-200 hover:border-[#01BBC8]/50 hover:shadow-md p-4 transition-all group',
           dashboard.is_archived && 'opacity-60'
         )}
       >
         {/* Preview Icon */}
-        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+        <div className="w-14 h-14 bg-gradient-to-br from-[#01BBC8] to-[#007499] rounded-xl flex items-center justify-center shrink-0">
           <LayoutDashboard className="w-7 h-7 text-white" />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+            <h3 className="font-semibold text-gray-900 truncate group-hover:text-[#01BBC8] transition-colors">
               {dashboard.name}
             </h3>
             {dashboard.is_public ? (
@@ -500,12 +537,12 @@ function DashboardCard({
     <Link
       to={`/dashboards/${dashboard.id}`}
       className={clsx(
-        'group relative bg-white rounded-2xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all',
+        'group relative bg-white rounded-2xl border border-gray-200 hover:border-[#01BBC8]/50 hover:shadow-lg transition-all',
         dashboard.is_archived && 'opacity-60'
       )}
     >
       {/* Preview Area */}
-      <div className="h-36 bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
+      <div className="h-36 bg-gradient-to-br from-[#01BBC8]/10 to-[#007499]/10 relative overflow-hidden rounded-t-2xl">
         {/* Grid Preview Pattern */}
         <div className="absolute inset-4 grid grid-cols-3 gap-2 opacity-60">
           {[...Array(Math.min(cardCount, 6))].map((_, i) => (
@@ -513,12 +550,12 @@ function DashboardCard({
               key={i}
               className={clsx(
                 'rounded-lg',
-                i === 0 ? 'col-span-2 row-span-2 bg-blue-200' :
-                i === 1 ? 'bg-indigo-200' :
-                i === 2 ? 'bg-purple-200' :
-                i === 3 ? 'bg-green-200' :
-                i === 4 ? 'bg-amber-200' :
-                'bg-pink-200'
+                i === 0 ? 'col-span-2 row-span-2 bg-[#01BBC8]/40' :
+                i === 1 ? 'bg-[#01A2BF]/40' :
+                i === 2 ? 'bg-[#007499]/40' :
+                i === 3 ? 'bg-[#01BBC8]/30' :
+                i === 4 ? 'bg-[#01A2BF]/30' :
+                'bg-[#007499]/30'
               )}
             />
           ))}
@@ -545,8 +582,8 @@ function DashboardCard({
         </div>
 
         {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <span className="px-4 py-2 bg-white rounded-lg shadow-lg text-sm font-medium text-blue-600">
+        <div className="absolute inset-0 bg-[#01BBC8]/0 group-hover:bg-[#01BBC8]/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <span className="px-4 py-2 bg-white rounded-lg shadow-lg text-sm font-medium text-[#007499]">
             Open Dashboard
           </span>
         </div>
@@ -556,7 +593,7 @@ function DashboardCard({
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+            <h3 className="font-semibold text-gray-900 truncate group-hover:text-[#01BBC8] transition-colors">
               {dashboard.name}
             </h3>
             {dashboard.description && (

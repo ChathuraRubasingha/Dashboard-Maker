@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { metabaseService } from '../services/metabaseService'
+import { DeleteConfirmDialog } from '../components/ui/ConfirmDialog'
+import { useToast } from '../components/ui/Toast'
 
 const DATABASE_ENGINES = [
   { value: 'postgres', label: 'PostgreSQL', icon: '🐘' },
@@ -43,13 +45,23 @@ const ENGINE_COLORS: Record<string, { bg: string; text: string; border: string }
   snowflake: { bg: 'bg-cyan-100', text: 'text-cyan-600', border: 'border-cyan-200' },
 }
 
+interface DatabaseItem {
+  id: number
+  name: string
+  engine: string
+  tables?: unknown[]
+}
+
 export default function DatabaseManager() {
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const [isAddingDb, setIsAddingDb] = useState(false)
   const [expandedDb, setExpandedDb] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DatabaseItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [newDb, setNewDb] = useState({
     name: '',
     engine: 'postgres',
@@ -75,6 +87,7 @@ export default function DatabaseManager() {
     mutationFn: metabaseService.createDatabase,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['metabase-databases'] })
+      toast.success('Database connected', 'Your database connection has been established')
       setIsAddingDb(false)
       setNewDb({
         name: '',
@@ -86,12 +99,22 @@ export default function DatabaseManager() {
         password: '',
       })
     },
+    onError: () => {
+      toast.error('Connection failed', 'Failed to connect to the database')
+    },
   })
 
   const deleteMutation = useMutation({
     mutationFn: metabaseService.deleteDatabase,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['metabase-databases'] })
+      toast.success('Connection deleted', 'The database connection has been removed')
+      setDeleteTarget(null)
+      setIsDeleting(false)
+    },
+    onError: () => {
+      toast.error('Failed to delete', 'Could not delete the database connection')
+      setIsDeleting(false)
     },
   })
 
@@ -99,8 +122,25 @@ export default function DatabaseManager() {
     mutationFn: metabaseService.syncDatabase,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['metabase-databases'] })
+      toast.success('Schema synced', 'Database schema has been refreshed')
+    },
+    onError: () => {
+      toast.error('Sync failed', 'Failed to sync database schema')
     },
   })
+
+  // Delete confirmation handlers
+  const handleDelete = (db: DatabaseItem) => {
+    setDeleteTarget(db)
+    setMenuOpenId(null)
+  }
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      setIsDeleting(true)
+      deleteMutation.mutate(deleteTarget.id)
+    }
+  }
 
   const handleCreateDatabase = () => {
     createMutation.mutate({
@@ -361,10 +401,7 @@ export default function DatabaseManager() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                if (confirm('Are you sure you want to delete this database connection?')) {
-                                  deleteMutation.mutate(db.id)
-                                }
-                                setMenuOpenId(null)
+                                handleDelete(db)
                               }}
                               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                             >
@@ -603,6 +640,16 @@ export default function DatabaseManager() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        itemName={deleteTarget?.name}
+        itemType="database connection"
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

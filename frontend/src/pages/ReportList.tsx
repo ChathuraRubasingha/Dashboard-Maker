@@ -25,6 +25,8 @@ import {
 import clsx from 'clsx'
 import { reportService } from '../services/reportService'
 import { excelReportService } from '../services/excelReportService'
+import { DeleteConfirmDialog } from '../components/ui/ConfirmDialog'
+import { useToast } from '../components/ui/Toast'
 import type { ReportListItem, ExcelTemplateReportListItem } from '../types'
 
 type ViewMode = 'grid' | 'list'
@@ -34,6 +36,7 @@ type ReportTab = 'widget' | 'excel'
 export default function ReportList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const [activeTab, setActiveTab] = useState<ReportTab>('widget')
   const [searchQuery, setSearchQuery] = useState('')
@@ -44,6 +47,11 @@ export default function ReportList() {
   const [sortBy, setSortBy] = useState<SortOption>('updated')
   const [showFilters, setShowFilters] = useState(false)
   const [showNewMenu, setShowNewMenu] = useState(false)
+
+  // Delete confirmation state
+  const [deleteWidgetTarget, setDeleteWidgetTarget] = useState<ReportListItem | null>(null)
+  const [deleteExcelTarget, setDeleteExcelTarget] = useState<ExcelTemplateReportListItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Fetch widget-based reports
   const { data: reports = [], isLoading } = useQuery({
@@ -61,14 +69,28 @@ export default function ReportList() {
     mutationFn: reportService.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] })
+      toast.success('Report deleted', 'The report has been permanently removed')
+      setDeleteWidgetTarget(null)
+      setIsDeleting(false)
+    },
+    onError: () => {
+      toast.error('Failed to delete report', 'Please try again')
+      setIsDeleting(false)
     },
   })
 
   const archiveMutation = useMutation({
     mutationFn: ({ id, archived }: { id: number; archived: boolean }) =>
       reportService.update(id, { is_archived: archived }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['reports'] })
+      toast.success(
+        variables.archived ? 'Report archived' : 'Report restored',
+        variables.archived ? 'The report has been archived' : 'The report has been restored'
+      )
+    },
+    onError: () => {
+      toast.error('Operation failed', 'Please try again')
     },
   })
 
@@ -76,6 +98,10 @@ export default function ReportList() {
     mutationFn: (id: number) => reportService.duplicate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] })
+      toast.success('Report duplicated', 'A copy of the report has been created')
+    },
+    onError: () => {
+      toast.error('Failed to duplicate report', 'Please try again')
     },
   })
 
@@ -84,14 +110,28 @@ export default function ReportList() {
     mutationFn: excelReportService.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['excel-reports'] })
+      toast.success('Excel report deleted', 'The report has been permanently removed')
+      setDeleteExcelTarget(null)
+      setIsDeleting(false)
+    },
+    onError: () => {
+      toast.error('Failed to delete Excel report', 'Please try again')
+      setIsDeleting(false)
     },
   })
 
   const archiveExcelMutation = useMutation({
     mutationFn: ({ id, archived }: { id: number; archived: boolean }) =>
       excelReportService.update(id, { is_archived: archived }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['excel-reports'] })
+      toast.success(
+        variables.archived ? 'Excel report archived' : 'Excel report restored',
+        variables.archived ? 'The report has been archived' : 'The report has been restored'
+      )
+    },
+    onError: () => {
+      toast.error('Operation failed', 'Please try again')
     },
   })
 
@@ -99,8 +139,37 @@ export default function ReportList() {
     mutationFn: (id: number) => excelReportService.duplicate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['excel-reports'] })
+      toast.success('Excel report duplicated', 'A copy of the report has been created')
+    },
+    onError: () => {
+      toast.error('Failed to duplicate Excel report', 'Please try again')
     },
   })
+
+  // Delete confirmation handlers
+  const handleDeleteWidget = (report: ReportListItem) => {
+    setDeleteWidgetTarget(report)
+    setMenuOpenId(null)
+  }
+
+  const confirmDeleteWidget = () => {
+    if (deleteWidgetTarget) {
+      setIsDeleting(true)
+      deleteMutation.mutate(deleteWidgetTarget.id)
+    }
+  }
+
+  const handleDeleteExcel = (report: ExcelTemplateReportListItem) => {
+    setDeleteExcelTarget(report)
+    setMenuOpenId(null)
+  }
+
+  const confirmDeleteExcel = () => {
+    if (deleteExcelTarget) {
+      setIsDeleting(true)
+      deleteExcelMutation.mutate(deleteExcelTarget.id)
+    }
+  }
 
   // Filter and sort reports
   const filteredReports = reports
@@ -402,7 +471,7 @@ export default function ReportList() {
                     </h2>
                     <div className={clsx(
                       viewMode === 'grid'
-                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
                         : 'space-y-3'
                     )}>
                       {activeReports.map((report) => (
@@ -415,12 +484,7 @@ export default function ReportList() {
                             setMenuOpenId(menuOpenId === report.id ? null : report.id)
                             setMenuOpenType('widget')
                           }}
-                          onDelete={() => {
-                            if (confirm('Are you sure you want to delete this report?')) {
-                              deleteMutation.mutate(report.id)
-                            }
-                            setMenuOpenId(null)
-                          }}
+                          onDelete={() => handleDeleteWidget(report)}
                           onArchive={() => {
                             archiveMutation.mutate({ id: report.id, archived: !report.is_archived })
                             setMenuOpenId(null)
@@ -444,7 +508,7 @@ export default function ReportList() {
                     </h2>
                     <div className={clsx(
                       viewMode === 'grid'
-                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
                         : 'space-y-3'
                     )}>
                       {archivedReports.map((report) => (
@@ -457,12 +521,7 @@ export default function ReportList() {
                             setMenuOpenId(menuOpenId === report.id ? null : report.id)
                             setMenuOpenType('widget')
                           }}
-                          onDelete={() => {
-                            if (confirm('Are you sure you want to delete this report?')) {
-                              deleteMutation.mutate(report.id)
-                            }
-                            setMenuOpenId(null)
-                          }}
+                          onDelete={() => handleDeleteWidget(report)}
                           onArchive={() => {
                             archiveMutation.mutate({ id: report.id, archived: !report.is_archived })
                             setMenuOpenId(null)
@@ -522,7 +581,7 @@ export default function ReportList() {
                     </h2>
                     <div className={clsx(
                       viewMode === 'grid'
-                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
                         : 'space-y-3'
                     )}>
                       {activeExcelReports.map((report) => (
@@ -535,12 +594,7 @@ export default function ReportList() {
                             setMenuOpenId(menuOpenId === report.id ? null : report.id)
                             setMenuOpenType('excel')
                           }}
-                          onDelete={() => {
-                            if (confirm('Are you sure you want to delete this Excel report?')) {
-                              deleteExcelMutation.mutate(report.id)
-                            }
-                            setMenuOpenId(null)
-                          }}
+                          onDelete={() => handleDeleteExcel(report)}
                           onArchive={() => {
                             archiveExcelMutation.mutate({ id: report.id, archived: !report.is_archived })
                             setMenuOpenId(null)
@@ -563,7 +617,7 @@ export default function ReportList() {
                     </h2>
                     <div className={clsx(
                       viewMode === 'grid'
-                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
                         : 'space-y-3'
                     )}>
                       {archivedExcelReports.map((report) => (
@@ -576,12 +630,7 @@ export default function ReportList() {
                             setMenuOpenId(menuOpenId === report.id ? null : report.id)
                             setMenuOpenType('excel')
                           }}
-                          onDelete={() => {
-                            if (confirm('Are you sure you want to delete this Excel report?')) {
-                              deleteExcelMutation.mutate(report.id)
-                            }
-                            setMenuOpenId(null)
-                          }}
+                          onDelete={() => handleDeleteExcel(report)}
                           onArchive={() => {
                             archiveExcelMutation.mutate({ id: report.id, archived: !report.is_archived })
                             setMenuOpenId(null)
@@ -600,6 +649,25 @@ export default function ReportList() {
           </>
         )}
       </div>
+
+      {/* Delete Confirmation Dialogs */}
+      <DeleteConfirmDialog
+        isOpen={deleteWidgetTarget !== null}
+        onClose={() => setDeleteWidgetTarget(null)}
+        onConfirm={confirmDeleteWidget}
+        itemName={deleteWidgetTarget?.name}
+        itemType="report"
+        isLoading={isDeleting}
+      />
+
+      <DeleteConfirmDialog
+        isOpen={deleteExcelTarget !== null}
+        onClose={() => setDeleteExcelTarget(null)}
+        onConfirm={confirmDeleteExcel}
+        itemName={deleteExcelTarget?.name}
+        itemType="Excel report"
+        isLoading={isDeleting}
+      />
     </div>
   )
 }
@@ -702,7 +770,7 @@ function ReportCard({
       )}
     >
       {/* Preview Area */}
-      <div className="h-36 bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
+      <div className="h-36 bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden rounded-t-2xl">
         {/* Document Preview Pattern */}
         <div className="absolute inset-4 flex flex-col gap-2">
           {/* Header block */}
@@ -980,7 +1048,7 @@ function ExcelReportCard({
       )}
     >
       {/* Preview Area */}
-      <div className="h-36 bg-gradient-to-br from-emerald-50 to-teal-50 relative overflow-hidden">
+      <div className="h-36 bg-gradient-to-br from-emerald-50 to-teal-50 relative overflow-hidden rounded-t-2xl">
         {/* Excel Preview Pattern */}
         <div className="absolute inset-4 flex flex-col gap-2">
           {/* Spreadsheet Header */}

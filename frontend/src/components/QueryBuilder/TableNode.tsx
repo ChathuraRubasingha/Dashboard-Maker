@@ -1,6 +1,5 @@
 import { useDraggable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
-import { Table, X, GripVertical, Link } from 'lucide-react'
+import { Table, X, GripVertical, Link, Move } from 'lucide-react'
 import clsx from 'clsx'
 import type { CanvasTable } from '../../types/queryBuilder'
 import type { MetabaseField } from '../../types'
@@ -63,6 +62,8 @@ interface TableNodeProps {
   onFieldDoubleClick: (fieldId: number, fieldName: string, baseType: string) => void
   isJoinSource: boolean
   isJoinTarget: boolean
+  onDragStart?: (e: React.MouseEvent) => void
+  isDragging?: boolean
 }
 
 export default function TableNode({
@@ -73,26 +74,9 @@ export default function TableNode({
   onFieldDoubleClick,
   isJoinSource,
   isJoinTarget,
+  onDragStart,
+  isDragging,
 }: TableNodeProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `canvas-table-${table.id}`,
-    data: {
-      type: 'canvas-table',
-      tableId: table.id,
-    },
-  })
-
-  const style = transform
-    ? {
-        transform: CSS.Translate.toString(transform),
-        left: table.position.x,
-        top: table.position.y,
-      }
-    : {
-        left: table.position.x,
-        top: table.position.y,
-      }
-
   const handleTableClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isJoinTarget) {
@@ -100,33 +84,45 @@ export default function TableNode({
     }
   }
 
+  const handleHeaderMouseDown = (e: React.MouseEvent) => {
+    // Only start drag on left click and if onDragStart is provided
+    if (e.button === 0 && onDragStart) {
+      onDragStart(e)
+    }
+  }
+
   return (
     <div
-      ref={setNodeRef}
-      style={style}
       className={clsx(
-        'absolute bg-white rounded-lg shadow-md border w-56',
-        isDragging && 'shadow-lg ring-2 ring-blue-400 z-50',
+        'bg-white rounded-lg shadow-md border w-56 transition-shadow',
+        isDragging && 'shadow-xl ring-2 ring-amber-400 z-50',
         isJoinSource && 'ring-2 ring-green-400 border-green-400',
         isJoinTarget && 'ring-2 ring-blue-400 border-blue-400 cursor-pointer',
-        !isJoinSource && !isJoinTarget && 'border-gray-200'
+        !isJoinSource && !isJoinTarget && !isDragging && 'border-gray-200 hover:shadow-lg'
       )}
       onClick={handleTableClick}
     >
-      {/* Header */}
+      {/* Header - drag handle for repositioning */}
       <div
-        {...listeners}
-        {...attributes}
-        className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 rounded-t-lg cursor-move"
+        onMouseDown={handleHeaderMouseDown}
+        className={clsx(
+          'flex items-center gap-2 px-3 py-2 border-b border-gray-200 rounded-t-lg select-none transition-colors',
+          isDragging ? 'bg-amber-50 cursor-grabbing' : 'bg-gray-50 cursor-grab hover:bg-gray-100'
+        )}
       >
-        <Table className="w-4 h-4 text-blue-500" />
+        <Move className={clsx(
+          'w-4 h-4 flex-shrink-0',
+          isDragging ? 'text-amber-500' : 'text-gray-400'
+        )} />
+        <Table className="w-4 h-4 text-blue-500 flex-shrink-0" />
         <span className="flex-1 font-medium text-sm text-gray-700 truncate">
           {table.tableName}
         </span>
-        <span className="text-xs text-gray-400">{table.alias}</span>
+        <span className="text-xs text-gray-400 flex-shrink-0">{table.alias}</span>
         <button
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="p-0.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500"
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="p-0.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 flex-shrink-0"
           title="Remove table"
         >
           <X className="w-4 h-4" />
@@ -137,6 +133,7 @@ export default function TableNode({
       <div className="px-3 py-1 border-b border-gray-100 bg-gray-50/50">
         <button
           onClick={(e) => { e.stopPropagation(); onStartJoin(); }}
+          onMouseDown={(e) => e.stopPropagation()}
           className="w-full text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded py-1"
         >
           + Create Join

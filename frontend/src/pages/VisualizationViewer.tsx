@@ -24,6 +24,8 @@ import { visualizationService } from "../services/visualizationService";
 import { metabaseService } from "../services/metabaseService";
 import ChartRenderer from "../components/ChartRenderer";
 import CustomizationPanel from "../components/CustomizationPanel";
+import { DeleteConfirmDialog } from "../components/ui/ConfirmDialog";
+import { useToast } from "../components/ui/Toast";
 import type {
   VisualizationType,
   VisualizationCustomization,
@@ -34,6 +36,7 @@ export default function VisualizationViewer() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -47,6 +50,8 @@ export default function VisualizationViewer() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [viewType, setViewType] = useState<VisualizationType>("table");
   const [copied, setCopied] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch visualization
   const {
@@ -158,7 +163,12 @@ export default function VisualizationViewer() {
   const deleteMutation = useMutation({
     mutationFn: () => visualizationService.delete(Number(id)),
     onSuccess: () => {
+      toast.success('Visualization deleted', 'The visualization has been permanently removed');
       navigate("/visualizations");
+    },
+    onError: () => {
+      toast.error('Failed to delete', 'Could not delete the visualization');
+      setIsDeleting(false);
     },
   });
 
@@ -175,10 +185,13 @@ export default function VisualizationViewer() {
   };
 
   const handleDelete = () => {
-    if (confirm("Are you sure you want to delete this visualization?")) {
-      deleteMutation.mutate();
-    }
+    setShowDeleteDialog(true);
     setShowMenu(false);
+  };
+
+  const confirmDelete = () => {
+    setIsDeleting(true);
+    deleteMutation.mutate();
   };
 
   const handleCopyLink = () => {
@@ -551,6 +564,16 @@ export default function VisualizationViewer() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={confirmDelete}
+        itemName={visualization?.name}
+        itemType="visualization"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

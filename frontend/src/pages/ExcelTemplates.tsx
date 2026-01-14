@@ -354,7 +354,7 @@ export default function ExcelTemplates() {
                 </div>
 
                 {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {templatesWithFiles.map((template) => (
                       <TemplateCardGrid
                         key={template.id}
@@ -400,7 +400,7 @@ export default function ExcelTemplates() {
                 </div>
 
                 {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {templatesWithoutFiles.map((template) => (
                       <TemplateCardGrid
                         key={template.id}
@@ -659,14 +659,14 @@ function TemplateCardGrid({
   return (
     <div
       className={clsx(
-        'group bg-white rounded-2xl border overflow-hidden transition-all hover:shadow-lg',
+        'group bg-white rounded-2xl border overflow-hidden transition-all hover:shadow-lg flex flex-col h-full',
         hasFile ? 'border-gray-200 hover:border-emerald-300' : 'border-dashed border-gray-300 hover:border-emerald-400'
       )}
     >
       {/* Preview Area */}
       <div
         className={clsx(
-          'h-40 relative overflow-hidden',
+          'h-40 relative overflow-hidden rounded-t-2xl',
           hasFile
             ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50'
             : 'bg-gradient-to-br from-gray-50 to-gray-100'
@@ -769,19 +769,28 @@ function TemplateCardGrid({
       </div>
 
       {/* Card Content */}
-      <div className="p-4">
+      <div className="p-4 flex-1 flex flex-col">
+        {/* Title - fixed height */}
         <h3 className="font-semibold text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
           {template.name}
         </h3>
-        {template.file_name && (
-          <p className="text-sm text-gray-500 truncate mt-0.5">{template.file_name}</p>
-        )}
-        {template.description && (
-          <p className="text-sm text-gray-500 line-clamp-2 mt-2">{template.description}</p>
-        )}
 
-        {/* Meta */}
-        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
+        {/* File name - fixed height slot */}
+        <div className="h-5 mt-0.5">
+          {template.file_name && (
+            <p className="text-sm text-gray-500 truncate">{template.file_name}</p>
+          )}
+        </div>
+
+        {/* Description - fixed height slot (2 lines) */}
+        <div className="h-10 mt-2">
+          {template.description && (
+            <p className="text-sm text-gray-500 line-clamp-2">{template.description}</p>
+          )}
+        </div>
+
+        {/* Meta - pushed to bottom */}
+        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-gray-100">
           <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
             <Clock className="w-3.5 h-3.5" />
             {formatRelativeDate(template.created_at)}
@@ -790,7 +799,7 @@ function TemplateCardGrid({
       </div>
 
       {/* Action Button */}
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-4 mt-auto">
         {isUploading ? (
           <div className="flex items-center justify-center gap-2 py-3 text-emerald-600">
             <Loader2 className="w-5 h-5 animate-spin" />

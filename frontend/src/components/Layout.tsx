@@ -16,7 +16,6 @@ import {
   LogOut,
   Sparkles,
   Home,
-  TrendingUp,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import clsx from 'clsx'
@@ -27,7 +26,7 @@ const navigation = [
     href: '/dashboards',
     icon: LayoutDashboard,
     description: 'Monitor KPIs',
-    color: 'blue'
+    color: 'teal'
   },
   {
     name: 'Reports',
@@ -60,11 +59,11 @@ const navigation = [
 ]
 
 const colorClasses = {
-  blue: {
-    bg: 'bg-blue-500',
-    bgLight: 'bg-blue-50',
-    text: 'text-blue-600',
-    border: 'border-blue-500',
+  teal: {
+    bg: 'bg-[#007499]',
+    bgLight: 'bg-[#01BBC8]/10',
+    text: 'text-[#007499]',
+    border: 'border-[#007499]',
   },
   purple: {
     bg: 'bg-purple-500',
@@ -161,22 +160,14 @@ export default function Layout() {
           sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-5'
         )}>
           <Link to="/" className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <TrendingUp className="w-5 h-5 text-white" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
-            </div>
-            {!sidebarCollapsed && (
-              <div>
-                <span className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                  Analytics
-                </span>
-                <span className="block text-[10px] text-gray-400 font-medium tracking-wider uppercase">
-                  Platform
-                </span>
-              </div>
-            )}
+            <img
+              src={sidebarCollapsed ? '/img/logoIcon.png' : '/img/logo.png'}
+              alt="Logo"
+              className={clsx(
+                'object-contain',
+                sidebarCollapsed ? 'h-8 w-8' : 'h-8 max-w-40'
+              )}
+            />
           </Link>
           <button
             className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"

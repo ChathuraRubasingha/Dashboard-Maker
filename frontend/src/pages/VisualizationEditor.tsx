@@ -20,12 +20,15 @@ import { visualizationService } from '../services/visualizationService'
 import { metabaseService } from '../services/metabaseService'
 import ChartRenderer from '../components/ChartRenderer'
 import CustomizationPanel from '../components/CustomizationPanel'
+import { DiscardChangesDialog } from '../components/ui/ConfirmDialog'
+import { useToast } from '../components/ui/Toast'
 import type { VisualizationType, VisualizationCustomization, QueryResult } from '../types'
 
 export default function VisualizationEditor() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
@@ -33,6 +36,7 @@ export default function VisualizationEditor() {
   const [showQuery, setShowQuery] = useState(true)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
 
   // Editable fields
   const [name, setName] = useState('')
@@ -139,6 +143,10 @@ export default function VisualizationEditor() {
       queryClient.invalidateQueries({ queryKey: ['visualizations'] })
       setHasUnsavedChanges(false)
       setSaveSuccess(true)
+      toast.success('Changes saved', 'Your visualization has been updated')
+    },
+    onError: () => {
+      toast.error('Failed to save', 'Could not save your changes')
     },
   })
 
@@ -197,9 +205,7 @@ export default function VisualizationEditor() {
             <button
               onClick={() => {
                 if (hasUnsavedChanges) {
-                  if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
-                    navigate(`/visualizations/${id}`)
-                  }
+                  setShowDiscardDialog(true)
                 } else {
                   navigate(`/visualizations/${id}`)
                 }
@@ -470,6 +476,13 @@ export default function VisualizationEditor() {
           </div>
         </div>
       </div>
+
+      {/* Discard Changes Confirmation Dialog */}
+      <DiscardChangesDialog
+        isOpen={showDiscardDialog}
+        onClose={() => setShowDiscardDialog(false)}
+        onConfirm={() => navigate(`/visualizations/${id}`)}
+      />
     </div>
   )
 }

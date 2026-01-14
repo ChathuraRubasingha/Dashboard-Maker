@@ -78,10 +78,7 @@ export default function QueryBuilder() {
     addFilter,
     updateFilter,
     removeFilter,
-
-
-
-
+    updateTablePosition,
     setExecuting,
     setError,
     setQueryResult,
@@ -374,6 +371,7 @@ export default function QueryBuilder() {
                 onEditJoin={handleEditJoin}
                 onRemoveJoin={removeJoin}
                 onFieldDoubleClick={handleFieldDoubleClick}
+                onUpdateTablePosition={updateTablePosition}
               />
             </div>
 
