@@ -637,7 +637,7 @@ function VisualizationCard({
     <div
       onClick={handleCardClick}
       className={clsx(
-        'group bg-white rounded-xl border border-gray-200 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100 transition-all duration-200 cursor-pointer overflow-hidden',
+        'group relative bg-white rounded-xl border border-gray-200 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100 transition-all duration-200 cursor-pointer',
         visualization.is_archived && 'opacity-60'
       )}
     >
@@ -701,8 +701,8 @@ function VisualizationCard({
 
             {isMenuOpen && (
               <>
-                <div className="fixed inset-0 z-10" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMenuToggle() }} />
-                <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-20">
+                <div className="fixed inset-0 z-40" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMenuToggle() }} />
+                <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1 z-50">
                   <button
                     onClick={(e) => {
                       e.preventDefault()
@@ -851,8 +851,8 @@ function VisualizationListItem({
 
         {isMenuOpen && (
           <>
-            <div className="fixed inset-0 z-10" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMenuToggle() }} />
-            <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-20">
+            <div className="fixed inset-0 z-40" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMenuToggle() }} />
+            <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1 z-50">
               <button
                 onClick={(e) => {
                   e.preventDefault()

@@ -500,7 +500,7 @@ function DashboardCard({
     <Link
       to={`/dashboards/${dashboard.id}`}
       className={clsx(
-        'group bg-white rounded-2xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all overflow-hidden',
+        'group relative bg-white rounded-2xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all',
         dashboard.is_archived && 'opacity-60'
       )}
     >
@@ -613,8 +613,8 @@ function DropdownMenu({
 }) {
   return (
     <>
-      <div className="fixed inset-0 z-10" onClick={(e) => { e.preventDefault(); onToggle() }} />
-      <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-20">
+      <div className="fixed inset-0 z-40" onClick={(e) => { e.preventDefault(); onToggle() }} />
+      <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50">
         <button
           onClick={(e) => {
             e.preventDefault()

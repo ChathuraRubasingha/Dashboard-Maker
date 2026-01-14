@@ -69,9 +69,9 @@ export default function CustomizationPanel({
   }
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`bg-white rounded-lg border border-gray-200 flex flex-col ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
       {/* Tab navigation */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-gray-200 flex-shrink-0">
         {/* Table tab - only for table type */}
         {isTableType && (
           <button
@@ -119,8 +119,8 @@ export default function CustomizationPanel({
         </button>
       </div>
 
-      {/* Tab content */}
-      <div className="p-4">
+      {/* Tab content - scrollable */}
+      <div className="p-4 overflow-y-auto max-h-[400px]">
         {/* Table Tab - Column Labels */}
         {activeTab === 'table' && isTableType && (
           <div className="space-y-4">

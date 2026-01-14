@@ -188,9 +188,9 @@ export default function VisualizationEditor() {
   ]
 
   return (
-    <div className="min-h-screen -m-4 lg:-m-6 flex flex-col bg-gray-50">
+    <div className="h-screen -m-4 lg:-m-6 flex flex-col bg-gray-50 overflow-hidden">
       {/* Modern Header */}
-      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/80">
+      <div className="flex-shrink-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/80">
         <div className="flex items-center justify-between h-16 px-4 lg:px-6">
           {/* Left: Back + Title */}
           <div className="flex items-center gap-4">
@@ -297,7 +297,7 @@ export default function VisualizationEditor() {
 
       {/* Query Preview Panel (Read-Only) */}
       {showQuery && (
-        <div className="bg-gray-900 border-b border-gray-700">
+        <div className="flex-shrink-0 bg-gray-900 border-b border-gray-700">
           <div className="px-6 py-4">
             <div className="flex items-center gap-2 mb-3">
               <Lock className="w-4 h-4 text-amber-400" />
@@ -321,7 +321,7 @@ export default function VisualizationEditor() {
 
       {/* Error Banner */}
       {(executeError || saveMutation.error) && (
-        <div className="mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3">
+        <div className="flex-shrink-0 mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3">
           <X className="w-5 h-5 flex-shrink-0" />
           <span className="text-sm">
             {executeError || (saveMutation.error instanceof Error ? saveMutation.error.message : 'Save failed')}
@@ -336,9 +336,10 @@ export default function VisualizationEditor() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden p-4 lg:p-6 gap-6">
-        {/* Left Panel: Settings */}
-        <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
+      <div className="flex-1 flex min-h-0 p-4 lg:p-6 gap-6 overflow-hidden">
+        {/* Left Panel: Settings - Only this panel scrolls */}
+        <div className="w-80 flex-shrink-0 overflow-y-auto">
+          <div className="space-y-4">
           {/* Basic Info */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h3 className="font-semibold text-gray-900 mb-4">Basic Info</h3>
@@ -411,6 +412,7 @@ export default function VisualizationEditor() {
               onChange={handleCustomizationChange}
               columns={queryResult?.data?.cols || []}
             />
+          </div>
           </div>
         </div>
 
