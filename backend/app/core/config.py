@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     METABASE_API_KEY: str = ""
     METABASE_EMBEDDING_SECRET_KEY: str = ""
 
+    # Ollama AI Configuration
+    OLLAMA_URL: str = "https://ai-core.minchy.ai"
+    OLLAMA_MODEL: str = "gemma3:12b"
+    OLLAMA_AUTH: str = ""  # Base64 encoded credentials for Basic auth
+
     # CORS
     CORS_ORIGINS: str = '["http://localhost:5173","http://localhost:3001"]'
 

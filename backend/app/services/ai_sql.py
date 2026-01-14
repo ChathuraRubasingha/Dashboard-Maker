@@ -7,14 +7,15 @@ from app.core.config import settings
 
 class AISQLService:
     """
-    Service for AI-powered SQL generation using Ollama (local LLM).
+    Service for AI-powered SQL generation using Ollama (hosted LLM).
     Converts natural language queries to SQL using database schema context.
     """
 
     def __init__(self):
-        # Ollama runs locally on port 11434 by default
-        self.ollama_url = getattr(settings, 'OLLAMA_URL', 'http://localhost:11434')
-        self.model = getattr(settings, 'OLLAMA_MODEL', 'llama3.2')  # or codellama, mistral, etc.
+        # Ollama hosted instance
+        self.ollama_url = getattr(settings, 'OLLAMA_URL', 'https://ai-core.minchy.ai')
+        self.model = getattr(settings, 'OLLAMA_MODEL', 'gemma3:12b')
+        self.auth = getattr(settings, 'OLLAMA_AUTH', '')  # Base64 encoded Basic auth credentials
 
     async def generate_sql(
         self,
@@ -113,9 +114,14 @@ Generate the SQL query:"""
 
     async def _call_ollama(self, prompt: str) -> str:
         """Call the Ollama API to generate a response."""
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        headers = {}
+        if self.auth:
+            headers["Authorization"] = f"Basic {self.auth}"
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{self.ollama_url}/api/generate",
+                headers=headers,
                 json={
                     "model": self.model,
                     "prompt": prompt,
@@ -194,31 +200,62 @@ Generate the SQL query:"""
     async def check_ollama_status(self) -> Dict[str, Any]:
         """Check if Ollama is running and the model is available."""
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                # Check if Ollama is running
-                response = await client.get(f"{self.ollama_url}/api/tags")
+            headers = {}
+            if self.auth:
+                headers["Authorization"] = f"Basic {self.auth}"
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Test with a simple generate request to verify connectivity
+                response = await client.post(
+                    f"{self.ollama_url}/api/generate",
+                    headers=headers,
+                    json={
+                        "model": self.model,
+                        "prompt": "Say 'OK' if you can hear me.",
+                        "stream": False,
+                        "options": {
+                            "num_predict": 10,
+                        }
+                    }
+                )
+
+                if response.status_code == 401:
+                    return {
+                        "available": False,
+                        "error": "Authentication failed - check OLLAMA_AUTH credentials"
+                    }
+
                 if response.status_code != 200:
                     return {
                         "available": False,
-                        "error": "Ollama is not responding"
+                        "error": f"Ollama is not responding (status: {response.status_code})"
                     }
 
-                # Check if our model is available
+                # If we get a response, the model is available
                 data = response.json()
-                models = [m.get("name", "").split(":")[0] for m in data.get("models", [])]
-
-                model_available = self.model.split(":")[0] in models
-
-                return {
-                    "available": True,
-                    "model": self.model,
-                    "model_available": model_available,
-                    "available_models": models
-                }
+                if data.get("response"):
+                    return {
+                        "available": True,
+                        "model": self.model,
+                        "model_available": True,
+                        "available_models": [self.model]
+                    }
+                else:
+                    return {
+                        "available": True,
+                        "model": self.model,
+                        "model_available": False,
+                        "error": "Model did not respond"
+                    }
         except httpx.ConnectError:
             return {
                 "available": False,
-                "error": "Cannot connect to Ollama. Make sure Ollama is running (ollama serve)"
+                "error": "Cannot connect to Ollama AI service"
+            }
+        except httpx.TimeoutException:
+            return {
+                "available": False,
+                "error": "Connection timed out - AI service may be slow or unavailable"
             }
         except Exception as e:
             return {
