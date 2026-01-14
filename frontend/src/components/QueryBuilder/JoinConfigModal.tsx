@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { X, Link2, ArrowRight, Table, Columns, Sparkles, Check } from 'lucide-react'
+import clsx from 'clsx'
 import type { JoinType, JoinDefinition, CanvasTable } from '../../types/queryBuilder'
 import { joinTypeLabels } from '../../types/queryBuilder'
 
@@ -120,26 +122,52 @@ export default function JoinConfigModal({
 
   if (!isOpen) return null
 
+  // Join type descriptions and icons
+  const joinTypeInfo: Record<JoinType, { description: string; icon: string }> = {
+    inner: { description: 'Only matching rows from both tables', icon: '⋂' },
+    left: { description: 'All from source + matching from target', icon: '◐' },
+    right: { description: 'All from target + matching from source', icon: '◑' },
+    full: { description: 'All rows from both tables', icon: '⋃' },
+  }
+
+  const isValid = sourceFieldId && targetFieldId && (targetTable || selectedTargetTableId)
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop with blur */}
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {existingJoin ? 'Edit Join' : 'Configure Join'}
-          </h3>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="relative px-5 py-4 bg-gradient-to-r from-amber-500 to-orange-600">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <Link2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">
+                {existingJoin ? 'Edit Join' : 'Configure Join'}
+              </h3>
+              <p className="text-xs text-white/80">Link tables together</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
         </div>
 
-        <div className="px-6 py-4 space-y-4">
-          {/* Join Type */}
+        <div className="p-5 space-y-5">
+          {/* Join Type Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               Join Type
             </label>
             <div className="grid grid-cols-4 gap-2">
@@ -147,61 +175,77 @@ export default function JoinConfigModal({
                 <button
                   key={type}
                   onClick={() => setJoinType(type)}
-                  className={`
-                    px-3 py-2 text-sm rounded-lg border transition-colors
-                    ${joinType === type
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                    }
-                  `}
+                  className={clsx(
+                    'relative flex flex-col items-center gap-1 px-2 py-3 rounded-xl border-2 transition-all',
+                    joinType === type
+                      ? 'border-amber-500 bg-amber-50 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  )}
                 >
-                  {type.toUpperCase()}
+                  <span className={clsx(
+                    'text-lg font-bold',
+                    joinType === type ? 'text-amber-600' : 'text-gray-400'
+                  )}>
+                    {joinTypeInfo[type].icon}
+                  </span>
+                  <span className={clsx(
+                    'text-[10px] font-semibold uppercase',
+                    joinType === type ? 'text-amber-700' : 'text-gray-500'
+                  )}>
+                    {type}
+                  </span>
+                  {joinType === type && (
+                    <div className="absolute -top-1 -right-1 p-0.5 bg-amber-500 rounded-full">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-gray-500">
-              {joinType === 'inner' && 'Returns rows when there is a match in both tables'}
-              {joinType === 'left' && 'Returns all rows from source table, matched rows from target'}
-              {joinType === 'right' && 'Returns all rows from target table, matched rows from source'}
-              {joinType === 'full' && 'Returns all rows when there is a match in either table'}
+            <p className="mt-2 text-[11px] text-gray-500 text-center">
+              {joinTypeInfo[joinType].description}
             </p>
           </div>
 
-          {/* Source Table & Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Source Table
-            </label>
-            <div className="flex gap-2">
-              <div className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-700">
-                {sourceTable?.tableName || 'Select a table'}
-                {sourceTable?.alias && ` (${sourceTable.alias})`}
+          {/* Tables Connection Visual */}
+          <div className="flex items-center gap-3">
+            {/* Source Table */}
+            <div className="flex-1">
+              <label className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Table className="w-3 h-3" />
+                Source
+              </label>
+              <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs font-semibold text-blue-700 truncate">
+                  {sourceTable?.tableName || 'No table'}
+                </p>
+                {sourceTable?.alias && (
+                  <p className="text-[10px] text-blue-500">{sourceTable.alias}</p>
+                )}
               </div>
-              <select
-                value={sourceFieldId || ''}
-                onChange={(e) => setSourceFieldId(Number(e.target.value))}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select field...</option>
-                {sourceTable?.fields.map((field) => (
-                  <option key={field.id} value={field.id}>
-                    {field.display_name || field.name}
-                  </option>
-                ))}
-              </select>
             </div>
-          </div>
 
-          {/* Target Table & Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Target Table
-            </label>
-            <div className="flex gap-2">
+            {/* Connection Arrow */}
+            <div className="flex flex-col items-center pt-5">
+              <div className="p-1.5 bg-amber-100 rounded-full">
+                <ArrowRight className="w-4 h-4 text-amber-600" />
+              </div>
+            </div>
+
+            {/* Target Table */}
+            <div className="flex-1">
+              <label className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Table className="w-3 h-3" />
+                Target
+              </label>
               {targetTable ? (
-                <div className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-700">
-                  {targetTable.tableName}
-                  {targetTable.alias && ` (${targetTable.alias})`}
+                <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <p className="text-xs font-semibold text-emerald-700 truncate">
+                    {targetTable.tableName}
+                  </p>
+                  {targetTable.alias && (
+                    <p className="text-[10px] text-emerald-500">{targetTable.alias}</p>
+                  )}
                 </div>
               ) : (
                 <select
@@ -210,7 +254,7 @@ export default function JoinConfigModal({
                     setSelectedTargetTableId(e.target.value)
                     setTargetFieldId(null)
                   }}
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
                 >
                   <option value="">Select table...</option>
                   {availableTargetTables.map((table) => (
@@ -220,11 +264,55 @@ export default function JoinConfigModal({
                   ))}
                 </select>
               )}
+            </div>
+          </div>
+
+          {/* Field Selection */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Source Field */}
+            <div>
+              <label className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Columns className="w-3 h-3" />
+                Source Field
+              </label>
+              <select
+                value={sourceFieldId || ''}
+                onChange={(e) => setSourceFieldId(Number(e.target.value))}
+                className={clsx(
+                  'w-full px-3 py-2.5 border rounded-lg text-xs transition-all',
+                  'focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400',
+                  sourceFieldId
+                    ? 'border-blue-300 bg-blue-50/50'
+                    : 'border-gray-200'
+                )}
+              >
+                <option value="">Select field...</option>
+                {sourceTable?.fields.map((field) => (
+                  <option key={field.id} value={field.id}>
+                    {field.display_name || field.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Target Field */}
+            <div>
+              <label className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <Columns className="w-3 h-3" />
+                Target Field
+              </label>
               <select
                 value={targetFieldId || ''}
                 onChange={(e) => setTargetFieldId(Number(e.target.value))}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={!currentTargetTable}
+                className={clsx(
+                  'w-full px-3 py-2.5 border rounded-lg text-xs transition-all',
+                  'focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  targetFieldId
+                    ? 'border-emerald-300 bg-emerald-50/50'
+                    : 'border-gray-200'
+                )}
               >
                 <option value="">Select field...</option>
                 {currentTargetTable?.fields.map((field) => (
@@ -237,31 +325,46 @@ export default function JoinConfigModal({
           </div>
 
           {/* Join Preview */}
-          {sourceFieldId && targetFieldId && currentTargetTable && (
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">
-                <span className="font-medium">{sourceTable?.alias}</span>
-                .{sourceTable?.fields.find(f => f.id === sourceFieldId)?.name}
-                <span className="mx-2">=</span>
-                <span className="font-medium">{currentTargetTable.alias}</span>
-                .{currentTargetTable.fields.find(f => f.id === targetFieldId)?.name}
+          {isValid && (
+            <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
+              <div className="flex items-center gap-2 mb-1">
+                <Link2 className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">
+                  Join Condition
+                </span>
+              </div>
+              <p className="text-xs text-gray-700 font-mono bg-white/60 px-2 py-1.5 rounded-md">
+                <span className="text-blue-600 font-semibold">{sourceTable?.alias}</span>
+                <span className="text-gray-400">.</span>
+                <span className="text-blue-700">{sourceTable?.fields.find(f => f.id === sourceFieldId)?.name}</span>
+                <span className="mx-2 text-amber-600 font-bold">=</span>
+                <span className="text-emerald-600 font-semibold">{currentTargetTable?.alias}</span>
+                <span className="text-gray-400">.</span>
+                <span className="text-emerald-700">{currentTargetTable?.fields.find(f => f.id === targetFieldId)?.name}</span>
               </p>
             </div>
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+        {/* Footer */}
+        <div className="px-5 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+            className="px-4 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            disabled={!sourceFieldId || !targetFieldId || (!targetTable && !selectedTargetTableId)}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!isValid}
+            className={clsx(
+              'inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all',
+              isValid
+                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-md shadow-amber-500/25'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            )}
           >
+            <Check className="w-3.5 h-3.5" />
             {existingJoin ? 'Update Join' : 'Create Join'}
           </button>
         </div>

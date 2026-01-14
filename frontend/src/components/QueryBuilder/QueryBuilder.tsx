@@ -264,55 +264,54 @@ export default function QueryBuilder() {
       onDragEnd={handleDragEnd}
       collisionDetection={closestCenter}
     >
-      <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-amber-50/30">
-        {/* Modern toolbar with backdrop blur */}
-        <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/80">
-          <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-            <div className="flex items-center gap-4">
+      <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-amber-50/30 overflow-hidden -m-4 lg:-m-6">
+        {/* Compact toolbar */}
+        <div className="flex-shrink-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/80">
+          <div className="flex items-center justify-between h-12 px-3">
+            <div className="flex items-center gap-3">
               {/* Amber gradient icon */}
-              <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg shadow-amber-500/25">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="p-1.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-md shadow-amber-500/25">
+                <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Query Builder</h1>
-                <p className="text-xs text-gray-500">Visual query designer</p>
+                <h1 className="text-sm font-semibold text-gray-900">Query Builder</h1>
               </div>
 
-              {/* Stats badges */}
-              <div className="hidden sm:flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
+              {/* Stats badges - compact */}
+              <div className="hidden sm:flex items-center gap-1.5 ml-3 pl-3 border-l border-gray-200">
                 {tables.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-200">
                     <Table className="w-3 h-3" />
-                    {tables.length} table{tables.length !== 1 ? 's' : ''}
+                    {tables.length}
                   </span>
                 )}
                 {columns.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
                     <Columns className="w-3 h-3" />
-                    {columns.length} column{columns.length !== 1 ? 's' : ''}
+                    {columns.length}
                   </span>
                 )}
                 {filters.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-orange-50 text-orange-700 rounded-full border border-orange-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-orange-50 text-orange-700 rounded-full border border-orange-200">
                     <Filter className="w-3 h-3" />
-                    {filters.length} filter{filters.length !== 1 ? 's' : ''}
+                    {filters.length}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Run Query button with amber gradient */}
+            {/* Run Query button - compact */}
             <button
               onClick={() => {
                 handleExecuteQuery()
                 setIsResultsModalOpen(true)
               }}
               disabled={isExecuting}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/30 hover:-translate-y-0.5"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-amber-500/25 transition-all"
             >
               {isExecuting ? (
                 <>
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
+                  <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
@@ -320,7 +319,7 @@ export default function QueryBuilder() {
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4" fill="currentColor" />
+                  <Play className="w-3.5 h-3.5" fill="currentColor" />
                   Run Query
                 </>
               )}
@@ -328,39 +327,37 @@ export default function QueryBuilder() {
           </div>
         </div>
 
-        {/* Error banner with modern styling */}
+        {/* Error banner - compact */}
         {error && (
-          <div className="mx-4 lg:mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3 shadow-sm">
-            <div className="p-1.5 bg-red-100 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-red-600" />
-            </div>
-            <span className="text-sm flex-1">{error}</span>
+          <div className="flex-shrink-0 mx-2 mt-2 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+            <span className="text-xs flex-1">{error}</span>
             <button
               onClick={() => setError(null)}
-              className="p-1.5 hover:bg-red-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-red-100 rounded transition-colors"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        {/* Main content area */}
-        <div className="flex flex-1 overflow-hidden p-3 gap-3">
-          {/* Left sidebar - Table selector (collapsible) */}
+        {/* Main content area - fixed layout, no page scroll */}
+        <div className="flex flex-1 min-h-0 p-2 gap-2">
+          {/* Left sidebar - Table selector with fixed max height */}
           {isTableSelectorOpen && (
-            <div className="w-64 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
+            <div className="w-56 flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden flex flex-col">
               <TableSelector />
             </div>
           )}
 
-          {/* Center - Query Canvas */}
-          <div className="flex-1 flex flex-col min-w-0 gap-3">
-            {/* Canvas with toggle button */}
-            <div className="flex-1 min-h-[300px] bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden relative">
+          {/* Center - Query Canvas and panels */}
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 gap-2">
+            {/* Canvas with toggle button - takes remaining space */}
+            <div className="flex-1 min-h-0 bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden relative">
               {/* Toggle sidebar button */}
               <button
                 onClick={() => setIsTableSelectorOpen(!isTableSelectorOpen)}
-                className="absolute top-3 left-3 z-10 p-2 bg-white/90 hover:bg-gray-100 rounded-lg border border-gray-200 shadow-sm transition-colors"
+                className="absolute top-2 left-2 z-10 p-1.5 bg-white/90 hover:bg-gray-100 rounded-md border border-gray-200 shadow-sm transition-colors"
                 title={isTableSelectorOpen ? 'Hide tables panel' : 'Show tables panel'}
               >
                 {isTableSelectorOpen ? (
@@ -380,10 +377,10 @@ export default function QueryBuilder() {
               />
             </div>
 
-            {/* Bottom panels - side by side */}
-            <div className="flex gap-3 h-56">
+            {/* Bottom panels - fixed height, side by side */}
+            <div className="flex-shrink-0 flex gap-2 h-44">
               {/* Column panel */}
-              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
+              <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
                 <ColumnPanel
                   columns={columns}
                   onUpdateColumn={updateColumn}
@@ -392,7 +389,7 @@ export default function QueryBuilder() {
               </div>
 
               {/* Filter panel */}
-              <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
+              <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
                 <FilterPanel
                   filters={filters}
                   tables={tables}
