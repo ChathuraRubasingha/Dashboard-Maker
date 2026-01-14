@@ -537,7 +537,7 @@ export default function DashboardBuilder() {
             draggableHandle=".drag-handle"
           >
             {currentDashboard.cards.map((card) => (
-              <div key={String(card.id)} className={clsx(isEditing && 'drag-handle')}>
+              <div key={String(card.id)} className="h-full">
                 <DashboardCard
                   card={card}
                   isEditing={isEditing}

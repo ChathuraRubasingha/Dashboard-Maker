@@ -709,51 +709,6 @@ function TemplateCardGrid({
           </div>
         )}
 
-        {/* Menu Button */}
-        <div className="absolute top-3 right-3">
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onMenuToggle()
-            }}
-            className="p-1.5 bg-white/80 hover:bg-white rounded-lg shadow-sm transition-all"
-          >
-            <MoreVertical className="w-4 h-4 text-gray-600" />
-          </button>
-
-          {isMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={onMenuToggle} />
-              <div className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-20">
-                {hasFile && (
-                  <button
-                    onClick={onCreateReport}
-                    className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    Create Report
-                  </button>
-                )}
-                <button
-                  onClick={onUpload}
-                  className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  {hasFile ? 'Replace File' : 'Upload File'}
-                </button>
-                <div className="my-1 border-t border-gray-100" />
-                <button
-                  onClick={onDelete}
-                  className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Template
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
         {/* Hover Overlay */}
         {hasFile && (
           <div
@@ -770,10 +725,83 @@ function TemplateCardGrid({
 
       {/* Card Content */}
       <div className="p-4 flex-1 flex flex-col">
-        {/* Title - fixed height */}
-        <h3 className="font-semibold text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
-          {template.name}
-        </h3>
+        {/* Title Row with Menu Button */}
+        <div className="flex items-start gap-2">
+          <h3 className="font-semibold text-gray-900 truncate group-hover:text-emerald-600 transition-colors flex-1">
+            {template.name}
+          </h3>
+          {/* Menu Button - moved here to avoid overlay conflict */}
+          <div className="relative shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                onMenuToggle()
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-all"
+            >
+              <MoreVertical className="w-4 h-4 text-gray-500" />
+            </button>
+
+            {isMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0"
+                  style={{ zIndex: 9998 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onMenuToggle()
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                />
+                <div
+                  className="absolute right-0 top-8 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5"
+                  style={{ zIndex: 9999 }}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  {hasFile && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onCreateReport()
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <FileText className="w-4 h-4 text-gray-400" />
+                      Create Report
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onUpload()
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Upload className="w-4 h-4 text-gray-400" />
+                    {hasFile ? 'Replace File' : 'Upload File'}
+                  </button>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete()
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Template
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* File name - fixed height slot */}
         <div className="h-5 mt-0.5">
@@ -922,7 +950,12 @@ function TemplateCardList({
 
         <div className="relative">
           <button
-            onClick={onMenuToggle}
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              onMenuToggle()
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <MoreVertical className="w-5 h-5 text-gray-400" />
@@ -930,11 +963,28 @@ function TemplateCardList({
 
           {isMenuOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={onMenuToggle} />
-              <div className="absolute right-0 top-10 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-20">
+              <div
+                className="fixed inset-0"
+                style={{ zIndex: 9998 }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMenuToggle()
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              />
+              <div
+                className="absolute right-0 top-10 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5"
+                style={{ zIndex: 9999 }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
                 {hasFile && (
                   <button
-                    onClick={onCreateReport}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onCreateReport()
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
                     className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     <FileText className="w-4 h-4 text-gray-400" />
@@ -942,7 +992,11 @@ function TemplateCardList({
                   </button>
                 )}
                 <button
-                  onClick={onUpload}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onUpload()
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   <Upload className="w-4 h-4 text-gray-400" />
@@ -950,7 +1004,11 @@ function TemplateCardList({
                 </button>
                 <div className="my-1 border-t border-gray-100" />
                 <button
-                  onClick={onDelete}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                 >
                   <Trash2 className="w-4 h-4" />

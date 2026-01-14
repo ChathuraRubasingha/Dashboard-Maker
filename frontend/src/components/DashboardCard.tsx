@@ -187,8 +187,7 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
     <div
       className={clsx(
         'h-full flex flex-col overflow-hidden',
-        shadowClasses[cardStyle.shadow as keyof typeof shadowClasses] || 'shadow-sm',
-        isEditing && 'cursor-move'
+        shadowClasses[cardStyle.shadow as keyof typeof shadowClasses] || 'shadow-sm'
       )}
       style={{
         borderRadius: cardStyle.border_radius,
@@ -200,21 +199,38 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
     >
       {/* Header */}
       {card.show_title && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-medium text-gray-900 truncate">
+        <div className={clsx(
+          "flex items-center justify-between px-4 py-3 border-b border-gray-100",
+          isEditing && "drag-handle cursor-move"
+        )}>
+          <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
             {getTitle()}
           </h3>
-          <div className="relative flex items-center gap-1">
+          <div
+            className="relative flex items-center gap-1 shrink-0"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => fetchData()}
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                fetchData()
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
               className="p-1 rounded hover:bg-gray-100"
               title="Refresh"
             >
               <RefreshCw className={clsx('w-4 h-4 text-gray-500', isLoading && 'animate-spin')} />
             </button>
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-1 rounded hover:bg-gray-100"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                setIsMenuOpen(!isMenuOpen)
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="p-1 rounded hover:bg-gray-100 relative z-10"
             >
               <MoreVertical className="w-4 h-4 text-gray-500" />
             </button>
@@ -223,15 +239,27 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
             {isMenuOpen && (
               <>
                 <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsMenuOpen(false)}
+                  className="fixed inset-0"
+                  style={{ zIndex: 9998 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsMenuOpen(false)
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
                 />
-                <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+                <div
+                  className="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1"
+                  style={{ zIndex: 9999 }}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation()
                       setIsFullscreen(true)
                       setIsMenuOpen(false)
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     <Maximize2 className="w-4 h-4" />
@@ -239,10 +267,12 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
                   </button>
                   {isLocalVisualization && (
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         handleNavigate()
                         setIsMenuOpen(false)
                       }}
+                      onMouseDown={(e) => e.stopPropagation()}
                       className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <ExternalLink className="w-4 h-4" />
@@ -252,20 +282,24 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
                   {isEditing && (
                     <>
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           onSettings?.()
                           setIsMenuOpen(false)
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                       >
                         <Settings className="w-4 h-4" />
                         Settings
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           onRemove?.()
                           setIsMenuOpen(false)
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -277,6 +311,13 @@ export default function DashboardCard({ card, isEditing, onRemove, onSettings }:
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Drag handle when title is hidden */}
+      {!card.show_title && isEditing && (
+        <div className="drag-handle h-6 bg-gray-50 border-b border-gray-100 cursor-move flex items-center justify-center hover:bg-gray-100 transition-colors">
+          <div className="w-8 h-1 bg-gray-300 rounded-full" />
         </div>
       )}
 
