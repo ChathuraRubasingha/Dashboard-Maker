@@ -19,9 +19,6 @@ import {
   FolderOpen,
   Grid3X3,
   List,
-  Filter,
-  Table,
-  Eye,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { excelService } from '../services/excelService'
